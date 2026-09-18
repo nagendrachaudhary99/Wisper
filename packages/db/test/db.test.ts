@@ -19,6 +19,7 @@ import {
   appendAudit,
   listAuditForRun,
   type Queryable,
+  type QueryExecutor,
 } from "../src/index.js";
 
 let db: Queryable;
@@ -132,5 +133,28 @@ describe("crash recovery at the persistence layer", () => {
     const reloaded = await listSteps(db, run.id);
     expect(reloaded[0]!.status).toBe("completed");
     expect((reloaded[0]!.result as { ok: boolean }).ok).toBe(true);
+  });
+});
+
+describe("migrations", () => {
+  it("uses the driver transaction API instead of pooled transaction-control queries", async () => {
+    const controlStatements: string[] = [];
+    let transactions = 0;
+    const query: Queryable["query"] = async <T>(text: string) => {
+      if (/^(BEGIN|COMMIT|ROLLBACK)\b/i.test(text.trim())) controlStatements.push(text.trim());
+      return { rows: [] as T[], rowCount: 0 };
+    };
+    const compatibleDb: Queryable = {
+      query,
+      async transaction<T>(callback: (tx: QueryExecutor) => Promise<T>): Promise<T> {
+        transactions += 1;
+        return callback({ query });
+      },
+      async close(): Promise<void> {},
+    };
+
+    expect(await migrate(compatibleDb)).toEqual(["0001_init", "0002_oauth"]);
+    expect(transactions).toBe(2);
+    expect(controlStatements).toEqual([]);
   });
 });
