@@ -75,7 +75,11 @@ async function main(): Promise<void> {
   const db = await PgliteQueryable.create();
   await migrate(db);
   const { tenant, token } = await createTenant(db, "preview");
-  const app = await buildServer({ db, engine: new InProcessEngine(db) });
+  const engine = new InProcessEngine(db);
+  const seededRun = await createRunOnce(db, { tenantId: tenant.id, idempotencyKey: "preview-dashboard", kind: "chat", input: { text: "Schedule a product review called Local Beta Review" } });
+  await appendAudit(db, { tenantId: tenant.id, runId: seededRun.run.id, actor: "api", eventType: "run.created", data: { preview: true } });
+  await engine.startChatRun({ tenantId: tenant.id, runId: seededRun.run.id, text: "Schedule a product review called Local Beta Review" });
+  const app = await buildServer({ db, engine });
   await app.listen({ port: 4123, host: "127.0.0.1" });
   console.log(`PREVIEW_TOKEN=${token}`);
   console.log(`PREVIEW_TENANT=${tenant.id}`);

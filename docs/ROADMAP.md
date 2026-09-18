@@ -32,3 +32,39 @@ approval boundary, once-only execution, audit. Follow-on milestones, in order:
 ## M7 - Browser automation
 - Isolated browser pods for sites without APIs, behind the same policy,
   approval, and idempotency machinery as API actions.
+
+## Milestone 2 (implemented on feat/milestone-2-real-providers)
+- Provider-agnostic structured model adapter with schema validation and deterministic offline fallback.
+- Google OAuth Authorization Code + PKCE, one-time state, encrypted tenant-scoped tokens.
+- Gmail read-only metadata connector (`gmail.readonly`).
+- Calendar event connector (`calendar.events`) behind the unchanged exact action-hash approval gate.
+- Render deployment blueprint; private access remains enforced by the tenant bearer token.
+
+## Local-first beta execution plan (M4-M8)
+
+These are not complete. Each milestone closes only when its acceptance tests pass.
+
+### M4 - Native Mac companion
+- Package a signed, non-admin helper using authenticated local IPC and macOS Keychain.
+- Implement race-safe file reads/writes and process-group resource limits.
+- Add per-app Automation/Accessibility permission onboarding and a menu-bar kill switch.
+- Exit: destructive-command adversarial suite is blocked; allowlisted read and approved write fixtures pass on a clean Mac.
+
+### M5 - Durable work, memory and monitoring
+- Add task dependencies, schedules, event subscriptions, retries, compensation and user-correctable memory with provenance.
+- Add queue controls and recovery states to the dashboard.
+- Exit: crash/restart and duplicate-event tests pass across every workflow state; dashboard can explain every wait and failure.
+
+### M6 - Live connector wave
+- Promote Google, Twilio/WhatsApp, Slack and GitHub adapters from mock to live behind the same policy contract; keep social adapters disabled until review scopes are approved.
+- Add webhook signature checks, token rotation and connector-specific rate limits.
+- Exit: provider sandboxes pass receive, draft, approval, send, dedupe and reconciliation tests without secrets appearing in logs.
+
+### M7 - Browser and app automation
+- Add scoped browser sessions and native app adapters with screenshots, operation previews, bounded recovery and unknown-outcome reconciliation.
+- Exit: benchmark tasks meet completion/latency targets and every effect can be stopped, audited or reconciled after interruption.
+
+### M8 - Installer and beta release
+- Ship a notarized installer, migration/backup flow, diagnostics bundle with redaction, automatic updates and an offline-first onboarding path.
+- Run full security review, cost/latency/reliability benchmarks and clean-Mac end-to-end testing.
+- Exit: one-command install and rollback work; beta checklist has zero high-severity open findings.
