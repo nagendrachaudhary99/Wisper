@@ -4,7 +4,9 @@ import {
   PgliteQueryable,
   migrate,
   createTenant,
+  addApiToken,
   tenantForToken,
+  rotateSoleApiToken,
   createRunOnce,
   getRun,
   upsertStep,
@@ -47,6 +49,23 @@ describe("auth", () => {
   it("resolves a token to its tenant and rejects unknown tokens", async () => {
     expect((await tenantForToken(db, token))?.id).toBe(tenantId);
     expect(await tenantForToken(db, "wsp_wrong")).toBeNull();
+  });
+
+  it("rotates the sole token while preserving tenant data", async () => {
+    const { run } = await createRunOnce(db, { tenantId, idempotencyKey: "before-rotation", kind: "chat", input: {} });
+    const replacement = await rotateSoleApiToken(db, tenantId);
+
+    expect(replacement.token).not.toBe(token);
+    expect(await tenantForToken(db, token)).toBeNull();
+    expect((await tenantForToken(db, replacement.token))?.id).toBe(tenantId);
+    expect((await getRun(db, tenantId, run.id))?.id).toBe(run.id);
+  });
+
+  it("refuses ambiguous rotation rather than revoking multiple tokens", async () => {
+    await addApiToken(db, tenantId, "wsp_second", "second");
+    await expect(rotateSoleApiToken(db, tenantId)).rejects.toThrow(/expected exactly one API token, found 2/);
+    expect((await tenantForToken(db, token))?.id).toBe(tenantId);
+    expect((await tenantForToken(db, "wsp_second"))?.id).toBe(tenantId);
   });
 });
 

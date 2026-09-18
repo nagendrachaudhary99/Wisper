@@ -1,6 +1,6 @@
 import { PgQueryable } from "./client.js";
 import { migrate } from "./migrate.js";
-import { createTenant } from "./repos/tenants.js";
+import { createTenant, rotateSoleApiToken } from "./repos/tenants.js";
 
 const command = process.argv[2];
 const databaseUrl = process.env.DATABASE_URL ?? "postgres://wisper:wisper@localhost:5432/wisper";
@@ -18,8 +18,15 @@ async function main(): Promise<void> {
       console.log(`tenant_id=${tenant.id}`);
       console.log(`api_token=${token}`);
       console.log("Store the token now; only its sha256 is kept in the database.");
+    } else if (command === "rotate-token") {
+      const tenantId = process.argv[3];
+      if (!tenantId) throw new Error("usage: cli.ts rotate-token <tenant_id>");
+      const { token } = await rotateSoleApiToken(db, tenantId);
+      console.log(`tenant_id=${tenantId}`);
+      console.log(`api_token=${token}`);
+      console.log("The previous token is revoked. Paste this replacement into the dashboard; do not send it in chat.");
     } else {
-      console.error("usage: cli.ts migrate|seed [name]");
+      console.error("usage: cli.ts migrate|seed [name]|rotate-token <tenant_id>");
       process.exit(1);
     }
   } finally {

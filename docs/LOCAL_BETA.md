@@ -8,6 +8,14 @@
 4. Open http://localhost:5173. The command prints the local API token during first-time seeding.
 5. Stop everything with `./wisper local down`. Set `WISPER_COMPANION_DISABLED=1` and restart the companion to engage the kill switch.
 
+If a printed API token is exposed, rotate only that tenant's sole token without resetting any database:
+
+```bash
+./wisper local rotate-token <tenant_id>
+```
+
+The old token is revoked atomically. Paste the replacement directly into the dashboard and do not send it in chat. The command refuses to guess if the tenant has zero or multiple tokens.
+
 The script starts Postgres, self-hosted Temporal, Temporal UI, API, worker, web dashboard and the localhost-only companion. Nothing deploys to a cloud service.
 
 The equivalent direct command is `docker compose --profile local up --build`
