@@ -7,7 +7,7 @@ case "${1:-} ${2:-}" in
   "local status") docker compose --profile local ps ;;
   "local rotate-token")
     [ -n "${3:-}" ] || { echo "Usage: ./wisper local rotate-token <tenant_id>" >&2; exit 2; }
-    docker compose run --rm --build --no-deps api pnpm --filter @wisper/db run rotate-token -- "$3"
+    docker compose run --rm --build --no-deps api pnpm --filter @wisper/db run rotate-token "$3"
     ;;
   *) echo "Usage: ./wisper local {up|down|logs|status|rotate-token <tenant_id>}" >&2; exit 2 ;;
 esac

@@ -12,7 +12,7 @@ args_file="$tmp/args"
 PATH="$tmp:$PATH" WISPER_DOCKER_ARGS_FILE="$args_file" \
   "$repo_root/wisper" local rotate-token tenant_regression
 mapfile -t actual < "$args_file"
-expected=(compose run --rm --build --no-deps api pnpm --filter @wisper/db run rotate-token -- tenant_regression)
+expected=(compose run --rm --build --no-deps api pnpm --filter @wisper/db run rotate-token tenant_regression)
 if [[ "${actual[*]}" != "${expected[*]}" ]]; then
   printf 'unexpected docker invocation\nexpected: %q\nactual:   %q\n' "${expected[*]}" "${actual[*]}" >&2
   exit 1
