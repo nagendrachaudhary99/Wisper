@@ -10,7 +10,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "test": "pnpm -r test && bash scripts/test-wisper-wrapper.sh",
     "migrate": "pnpm --filter @wisper/db migrate",
     "seed": "pnpm --filter @wisper/db seed",
     "dev:api": "pnpm --filter @wisper/api dev",
