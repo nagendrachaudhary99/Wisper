@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 case "${1:-} ${2:-}" in
-  "local up") docker compose --profile app up --build -d; docker compose exec api pnpm migrate; docker compose exec api pnpm seed dev ;;
-  "local down") docker compose --profile app down ;;
-  "local logs") docker compose --profile app logs -f --tail=150 ;;
-  "local status") docker compose --profile app ps ;;
+  "local up") docker compose --profile local up --build -d; docker compose exec api pnpm migrate; docker compose exec api pnpm seed dev ;;
+  "local down") docker compose --profile local down ;;
+  "local logs") docker compose --profile local logs -f --tail=150 ;;
+  "local status") docker compose --profile local ps ;;
   *) echo "Usage: ./wisper local {up|down|logs|status}" >&2; exit 2 ;;
 esac

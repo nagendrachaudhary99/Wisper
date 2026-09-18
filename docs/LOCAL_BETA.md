@@ -10,6 +10,25 @@
 
 The script starts Postgres, self-hosted Temporal, Temporal UI, API, worker, web dashboard and the localhost-only companion. Nothing deploys to a cloud service.
 
+The equivalent direct command is `docker compose --profile local up --build`
+(add `-d` to detach). Run `bash scripts/verify-compose.sh` first if the stack
+fails to start; it checks the Temporal config files and profile wiring.
+
+## Troubleshooting
+
+- Re-running the command is safe. Temporal schema setup and the database
+  volumes are idempotent; containers can be stopped and restarted freely.
+- `Temporal exits with "development-sql.yaml: no such file"`: the
+  `temporal/dynamicconfig/` folder is missing from the checkout. Pull the
+  latest branch and re-run.
+- `database "temporal_visibility" already exists` on restart: you are on an
+  older revision without `SKIP_DB_CREATE`. Pull the latest branch and re-run;
+  existing data is kept.
+- First run builds the app images and can take several minutes.
+- If `./wisper local up` fails at the migrate step because the API container
+  is still starting, wait a few seconds and run
+  `docker compose exec api pnpm migrate` again.
+
 ## Outcome targets
 
 The beta is measured by duplicate effects (target zero), replay recovery, approval latency, successful/failed run rate, time to diagnose a failure from the audit timeline, and the ability to reverse or stop local control. These are outcome comparisons, not claims about another product's internal design.
