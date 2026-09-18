@@ -1,0 +1,35 @@
+{
+  "name": "wisper",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Wisper - crash-safe automation engine vertical slice",
+  "packageManager": "pnpm@12.4.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "migrate": "pnpm --filter @wisper/db migrate",
+    "seed": "pnpm --filter @wisper/db seed",
+    "dev:api": "pnpm --filter @wisper/api dev",
+    "dev:worker": "pnpm --filter @wisper/worker dev",
+    "dev:web": "pnpm --filter @wisper/web dev",
+    "smoke": "bash scripts/smoke.sh"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.5",
+    "tsx": "4.19.4",
+    "typescript": "5.6.3",
+    "vitest": "2.1.9"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@swc/core",
+      "@temporalio/core-bridge",
+      "esbuild",
+      "protobufjs"
+    ]
+  }
+}

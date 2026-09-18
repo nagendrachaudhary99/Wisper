@@ -1,0 +1,21 @@
+{
+  "name": "@wisper/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "dev": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@temporalio/client": "1.11.5",
+    "@wisper/contracts": "workspace:*",
+    "@wisper/db": "workspace:*",
+    "fastify": "4.28.1",
+    "zod": "3.23.8"
+  }
+}

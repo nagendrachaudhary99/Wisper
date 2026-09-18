@@ -1,0 +1,13 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+allowBuilds:
+  "@swc/core": true
+  "@temporalio/core-bridge": true
+  esbuild: true
+  protobufjs: true
+onlyBuiltDependencies:
+  - "@swc/core"
+  - "@temporalio/core-bridge"
+  - esbuild
+  - protobufjs
