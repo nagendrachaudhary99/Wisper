@@ -32,3 +32,10 @@ approval boundary, once-only execution, audit. Follow-on milestones, in order:
 ## M7 - Browser automation
 - Isolated browser pods for sites without APIs, behind the same policy,
   approval, and idempotency machinery as API actions.
+
+## Milestone 2 (implemented on feat/milestone-2-real-providers)
+- Provider-agnostic structured model adapter with schema validation and deterministic offline fallback.
+- Google OAuth Authorization Code + PKCE, one-time state, encrypted tenant-scoped tokens.
+- Gmail read-only metadata connector (`gmail.readonly`).
+- Calendar event connector (`calendar.events`) behind the unchanged exact action-hash approval gate.
+- Render deployment blueprint; private access remains enforced by the tenant bearer token.

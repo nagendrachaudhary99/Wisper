@@ -15,6 +15,7 @@ import {
   type Tenant,
 } from "@wisper/db";
 import type { RunEngine } from "./engine.js";
+import { beginGoogleOAuth, finishGoogleOAuth, type GoogleOAuthConfig } from "./google-oauth.js";
 
 const ChatBody = z.object({
   text: z.string().min(1).max(4000),
@@ -35,6 +36,7 @@ declare module "fastify" {
 export interface ServerDeps {
   db: Queryable;
   engine: RunEngine;
+  googleOAuth?: GoogleOAuthConfig;
 }
 
 export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
@@ -58,6 +60,23 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   });
 
   app.get("/health", async () => ({ ok: true }));
+
+  app.get("/v1/oauth/google/start", async (req, reply) => {
+    if (!deps.googleOAuth) return reply.code(503).send({ error: "Google OAuth is not configured" });
+    return { authorizationUrl: await beginGoogleOAuth(db, req.tenant!.id, deps.googleOAuth) };
+  });
+
+  app.get("/oauth/google/callback", async (req, reply) => {
+    if (!deps.googleOAuth) return reply.code(503).send("Google OAuth is not configured");
+    const parsed = z.object({ state: z.string().min(1), code: z.string().min(1) }).safeParse(req.query);
+    if (!parsed.success) return reply.code(400).send("Missing OAuth state or code");
+    try {
+      const profile = await finishGoogleOAuth(db, parsed.data.state, parsed.data.code, deps.googleOAuth);
+      return reply.type("text/html").send(`<h1>Google connected</h1><p>${escapeHtml(profile.email ?? "Account connected")}</p><p>You can close this window.</p>`);
+    } catch (err) {
+      return reply.code(400).send(err instanceof Error ? err.message : "OAuth failed");
+    }
+  });
 
   /**
    * The one authenticated chat entry point. Creates a durable run exactly
@@ -161,3 +180,5 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
 
   return app;
 }
+
+function escapeHtml(value: string): string { return value.replace(/[&<>"\']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\'":"&#39;","\"":"&quot;"}[c] ?? c)); }

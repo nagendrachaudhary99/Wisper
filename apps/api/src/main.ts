@@ -4,14 +4,20 @@ import { buildServer } from "./server.js";
 
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL ?? "postgres://wisper:wisper@localhost:5432/wisper";
-  const port = Number(process.env.API_PORT ?? 3001);
+  const port = Number(process.env.PORT ?? process.env.API_PORT ?? 3001);
   const engine = new TemporalRunEngine(
     process.env.TEMPORAL_ADDRESS ?? "localhost:7233",
     process.env.TEMPORAL_NAMESPACE ?? "default",
     process.env.TEMPORAL_TASK_QUEUE ?? "wisper-chat",
   );
   const db = new PgQueryable(databaseUrl);
-  const app = await buildServer({ db, engine });
+  const googleOAuth = process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.OAUTH_ENCRYPTION_KEY && process.env.PUBLIC_BASE_URL ? {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    encryptionKey: process.env.OAUTH_ENCRYPTION_KEY,
+    publicBaseUrl: process.env.PUBLIC_BASE_URL,
+  } : undefined;
+  const app = await buildServer({ db, engine, googleOAuth });
   await app.listen({ port, host: "0.0.0.0" });
   console.log(`API listening on :${port}`);
 }

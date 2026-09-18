@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: wisper-api
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: wisper-db, property: connectionString }
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: OAUTH_ENCRYPTION_KEY
+        sync: false
+      - key: TEMPORAL_ADDRESS
+        sync: false
+      - key: MODEL_API_KEY
+        sync: false
+  - type: web
+    name: wisper-web
+    runtime: static
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @wisper/web build
+    staticPublishPath: apps/web/dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+databases:
+  - name: wisper-db
+    plan: basic-256mb

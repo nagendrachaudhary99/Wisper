@@ -14,7 +14,7 @@ export function App() {
     return (
       <main>
         <h1>Wisper</h1>
-        <p className="sub">Automation engine - vertical slice</p>
+        <p className="sub">Automation engine - private test console</p>
         <div className="card">
           <h2>Connect</h2>
           <p className="sub">Paste an API token from <span className="mono">pnpm seed</span>.</p>
@@ -101,9 +101,9 @@ function Console({ client, onDisconnect }: { client: ApiClient; onDisconnect: ()
       <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
         <div>
           <h1>Wisper</h1>
-          <p className="sub">Automation engine - vertical slice</p>
+          <p className="sub">Automation engine - private test console</p>
         </div>
-        <button className="secondary" onClick={onDisconnect}>Disconnect</button>
+        <div className="row"><button className="secondary" onClick={async () => { try { window.location.href = (await client.googleAuthorizationUrl()).authorizationUrl; } catch (err) { setError(err instanceof Error ? err.message : String(err)); } }}>Connect Google</button><button className="secondary" onClick={onDisconnect}>Disconnect</button></div>
       </div>
 
       <div className="card">

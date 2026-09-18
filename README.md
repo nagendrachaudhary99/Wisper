@@ -95,3 +95,18 @@ packages/
   policy/     pure policy evaluation
 docs/ROADMAP.md  follow-on milestones for the full engine
 ```
+
+
+## Milestone 2: live providers
+
+Local mode stays fake and credential-free. Set `PROVIDER_MODE=google` to use the live Google connectors. Google authorization uses Authorization Code + PKCE with one-time state. Refresh and access tokens are encrypted with AES-256-GCM and keyed by tenant. Gmail exposes only unread-message metadata through `gmail.readonly`. Calendar creation still enters the same policy, exact action-hash approval, idempotency, and append-only audit path before the provider is called.
+
+The model planner is an OpenAI-compatible adapter selected only when `MODEL_API_KEY` is set. Its JSON output is parsed through the closed `Plan` schema, so unknown actions fail closed. Without it, the deterministic planner remains the offline fallback.
+
+### Secure configuration
+
+Copy `.env.example`. Secrets must come from a deployment secret manager, never source control. Required for live mode: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, a base64 32-byte `OAUTH_ENCRYPTION_KEY`, and `PUBLIC_BASE_URL`. The optional model adapter uses `MODEL_API_KEY`, `MODEL_ENDPOINT`, and `MODEL_NAME`.
+
+### Private test deployment
+
+`render.yaml` defines separate API and static-web services plus Postgres. The console remains inaccessible without a tenant bearer token. Temporal must be provided as a managed endpoint. Set the API and web URLs in the deployment dashboard, migrate and seed once, then connect Google from `GET /v1/oauth/google/start` while authenticated.

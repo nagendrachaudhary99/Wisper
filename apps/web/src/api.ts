@@ -56,6 +56,10 @@ export class ApiClient {
     return this.call(`/v1/runs/${id}`);
   }
 
+  googleAuthorizationUrl(): Promise<{ authorizationUrl: string }> {
+    return this.call("/v1/oauth/google/start");
+  }
+
   pendingApprovals(): Promise<{ approvals: Approval[] }> {
     return this.call("/v1/approvals?status=pending");
   }
