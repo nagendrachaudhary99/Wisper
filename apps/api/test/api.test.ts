@@ -127,3 +127,14 @@ describe("approval boundary", () => {
     expect(stored.status).toBe("pending");
   });
 });
+
+describe("GET /v1/dashboard", () => {
+  it("returns tenant-scoped work, approval, failure and audit collections", async () => {
+    await app.inject({ method: "POST", url: "/v1/chat", headers: auth(), payload: { text: "hello", idempotencyKey: "dash-1" } });
+    const res = await app.inject({ method: "GET", url: "/v1/dashboard", headers: auth() });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ counts: { pending: 1 }, failures: [] });
+    expect(res.json().runs).toHaveLength(1);
+    expect(res.json().audit[0].event_type).toBe("run.created");
+  });
+});

@@ -13,6 +13,7 @@ import {
   tenantForToken,
   type Queryable,
   type Tenant,
+  dashboardSnapshot,
 } from "@wisper/db";
 import type { RunEngine } from "./engine.js";
 import { beginGoogleOAuth, finishGoogleOAuth, type GoogleOAuthConfig } from "./google-oauth.js";
@@ -128,6 +129,10 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
       approvals: approvals.filter((a) => a.run_id === id),
       audit,
     };
+  });
+
+  app.get("/v1/dashboard", async (req) => {
+    return dashboardSnapshot(db, req.tenant!.id);
   });
 
   app.get("/v1/approvals", async (req) => {

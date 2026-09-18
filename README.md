@@ -110,3 +110,15 @@ Copy `.env.example`. Secrets must come from a deployment secret manager, never s
 ### Private test deployment
 
 `render.yaml` defines separate API and static-web services plus Postgres. The console remains inaccessible without a tenant bearer token. Temporal must be provided as a managed endpoint. Set the API and web URLs in the deployment dashboard, migrate and seed once, then connect Google from `GET /v1/oauth/google/start` while authenticated.
+
+## Milestone 3: local-first control plane
+
+This branch turns Wisper into a credential-free Mac beta before any cloud deployment:
+
+- `./wisper local up` starts Postgres, self-hosted Temporal, API, worker, dashboard and the loopback-only companion.
+- The new overview dashboard shows the work queue, active/completed/failed counts, exact pending approvals, connector readiness and the append-only audit timeline.
+- `apps/companion` is a safe local capability broker. It uses structured commands with no shell, an executable allowlist, workspace containment, exact-operation approvals, 30-second maximum timeouts, bounded output, kill switch and mode-0600 audit log. File, app and browser effects have explicit approval contracts; live UI-driving adapters are intentionally not enabled yet.
+- `packages/connector-sdk` provides validated manifests, capability declarations, credential inventories and idempotent mock adapters for Twilio, WhatsApp, Instagram, Facebook, LinkedIn, X, Slack and Discord.
+- Gmail/Calendar and model planning remain behind their existing provider interfaces. Fake mode is still the default. The securely stored model key is not copied into source or local files.
+
+See `docs/LOCAL_BETA.md`, `docs/THREAT_MODEL.md`, and `docs/CREDENTIALS.md`.
