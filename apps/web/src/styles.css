@@ -1,0 +1,33 @@
+:root { color-scheme: light dark; font-family: -apple-system, "Segoe UI", system-ui, sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #0f1115; color: #e6e8ec; }
+#root { max-width: 860px; margin: 0 auto; padding: 32px 20px 64px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+.sub { color: #8b93a3; font-size: 13px; margin-bottom: 24px; }
+.card { background: #171a21; border: 1px solid #262b36; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.row { display: flex; gap: 8px; }
+input[type="text"], input[type="password"] {
+  flex: 1; background: #0f1115; border: 1px solid #2c3240; color: #e6e8ec;
+  border-radius: 8px; padding: 10px 12px; font-size: 14px; outline: none;
+}
+input:focus { border-color: #4c7dff; }
+button {
+  background: #4c7dff; color: #fff; border: 0; border-radius: 8px;
+  padding: 10px 16px; font-size: 14px; cursor: pointer;
+}
+button.secondary { background: #2c3240; }
+button.danger { background: #b34444; }
+button:disabled { opacity: 0.5; cursor: default; }
+.pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #2c3240; margin-left: 8px; }
+.pill.completed, .pill.approved { background: #1f5136; }
+.pill.failed, .pill.rejected, .pill.denied { background: #5c2a2a; }
+.pill.waiting_approval, .pill.awaiting_approval, .pill.pending { background: #5c4a1f; }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; color: #9aa4b6; }
+pre {
+  background: #0f1115; border: 1px solid #262b36; border-radius: 8px;
+  padding: 10px; font-size: 12px; overflow-x: auto; white-space: pre-wrap;
+}
+.error { color: #ff8080; font-size: 13px; }
+.step { border-top: 1px solid #262b36; padding: 10px 0; }
+.step:first-of-type { border-top: 0; }
+h2 { font-size: 15px; margin: 0 0 10px; }

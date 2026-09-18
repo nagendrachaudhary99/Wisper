@@ -1,0 +1,52 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: wisper
+      POSTGRES_PASSWORD: wisper
+      POSTGRES_DB: wisper
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wisper -d wisper"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  temporal-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_DB: temporal
+    volumes:
+      - temporal-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal -d temporal"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  temporal:
+    image: temporalio/auto-setup:1.24.2
+    depends_on:
+      temporal-db:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_SEEDS: temporal-db
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+    volumes:
+      - ./temporal/dynamicconfig:/etc/temporal/config/dynamicconfig
+
+volumes:
+  db-data:
+  temporal-db-data:
