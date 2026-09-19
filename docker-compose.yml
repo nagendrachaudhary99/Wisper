@@ -61,10 +61,14 @@ services:
     build: .
     command: pnpm dev:api
     depends_on: { db: { condition: service_healthy }, temporal: { condition: service_started } }
+    env_file:
+      - path: .env.local
+        required: false
     environment:
       DATABASE_URL: postgres://wisper:wisper@db:5432/wisper
       TEMPORAL_ADDRESS: temporal:7233
-      PROVIDER_MODE: fake
+      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3001}
     ports: ["127.0.0.1:3001:3001"]
 
   worker:
@@ -72,10 +76,13 @@ services:
     build: .
     command: pnpm dev:worker
     depends_on: { db: { condition: service_healthy }, temporal: { condition: service_started } }
+    env_file:
+      - path: .env.local
+        required: false
     environment:
       DATABASE_URL: postgres://wisper:wisper@db:5432/wisper
       TEMPORAL_ADDRESS: temporal:7233
-      PROVIDER_MODE: fake
+      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
 
   web:
     profiles: ["local"]

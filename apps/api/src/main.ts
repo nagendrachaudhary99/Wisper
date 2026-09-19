@@ -17,7 +17,10 @@ async function main(): Promise<void> {
     encryptionKey: process.env.OAUTH_ENCRYPTION_KEY,
     publicBaseUrl: process.env.PUBLIC_BASE_URL,
   } : undefined;
-  const app = await buildServer({ db, engine, googleOAuth });
+  const app = await buildServer({ db, engine, googleOAuth, runtime: {
+    planner: process.env.MODEL_API_KEY ? "openai-compatible" : "deterministic",
+    provider: process.env.PROVIDER_MODE === "google" ? "google" : "fake",
+  } });
   await app.listen({ port, host: "0.0.0.0" });
   console.log(`API listening on :${port}`);
 }

@@ -32,7 +32,7 @@ beforeEach(async () => {
   tenantId = seeded.tenant.id;
   token = seeded.token;
   engine = new FakeEngine();
-  app = await buildServer({ db, engine });
+  app = await buildServer({ db, engine, runtime: { planner: "openai-compatible", provider: "google" } });
 });
 
 afterEach(async () => {
@@ -136,5 +136,15 @@ describe("GET /v1/dashboard", () => {
     expect(res.json()).toMatchObject({ counts: { pending: 1 }, failures: [] });
     expect(res.json().runs).toHaveLength(1);
     expect(res.json().audit[0].event_type).toBe("run.created");
+  });
+});
+
+
+describe("GET /v1/system/status", () => {
+  it("reports runtime truth without returning secrets", async () => {
+    const res = await app.inject({ method: "GET", url: "/v1/system/status", headers: auth() });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ planner: { mode: "openai-compatible", live: true }, provider: "google", google: { connected: false, docs: false } });
+    expect(JSON.stringify(res.json())).not.toContain("secret");
   });
 });
