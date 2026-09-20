@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Queryable } from "./client.js";
+import type { Queryable, QueryExecutor } from "./client.js";
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
 
@@ -19,21 +19,17 @@ export async function migrate(db: Queryable): Promise<string[]> {
     if (applied.has(version)) continue;
     const sql = await readFile(join(MIGRATIONS_DIR, file), "utf8");
     // Migration files are trusted repo content and may contain multiple statements.
-    await db.query("BEGIN");
-    try {
-      await execStatements(db, sql);
-      await db.query("INSERT INTO schema_migrations (version) VALUES ($1)", [version]);
-      await db.query("COMMIT");
-    } catch (err) {
-      await db.query("ROLLBACK");
-      throw err;
-    }
+    // Use the driver's transaction API so every statement is pinned to one connection.
+    await db.transaction(async (tx) => {
+      await execStatements(tx, sql);
+      await tx.query("INSERT INTO schema_migrations (version) VALUES ($1)", [version]);
+    });
     ran.push(version);
   }
   return ran;
 }
 
-async function execStatements(db: Queryable, sql: string): Promise<void> {
+async function execStatements(db: QueryExecutor, sql: string): Promise<void> {
   // Split on statement boundaries conservatively: plpgsql function bodies in our
   // migrations are delimited by $$...$$, so a naive ';' split would break them.
   const statements: string[] = [];

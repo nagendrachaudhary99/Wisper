@@ -11,6 +11,12 @@ import type { FastifyInstance } from "fastify";
 class FakeEngine implements RunEngine {
   starts: Array<{ tenantId: string; runId: string; text: string }> = [];
   signals: Array<{ approvalId: string; approved: boolean }> = [];
+  cancels: Array<{ runId: string }> = [];
+  failCancel = false;
+  async cancelRun(args: { tenantId: string; runId: string }): Promise<void> {
+    if (this.failCancel) throw new Error("orchestrator unreachable");
+    this.cancels.push({ runId: args.runId });
+  }
   async startChatRun(args: { tenantId: string; runId: string; text: string }): Promise<void> {
     this.starts.push(args);
   }
@@ -32,7 +38,7 @@ beforeEach(async () => {
   tenantId = seeded.tenant.id;
   token = seeded.token;
   engine = new FakeEngine();
-  app = await buildServer({ db, engine });
+  app = await buildServer({ db, engine, runtime: { planner: "openai-compatible", provider: "google" } });
 });
 
 afterEach(async () => {
@@ -51,6 +57,49 @@ describe("auth", () => {
       headers: { authorization: "Bearer wsp_wrong" }, payload: { text: "hi" },
     });
     expect(bad.statusCode).toBe(401);
+  });
+});
+
+
+describe("DELETE /v1/runs/:id", () => {
+  it("cancels the workflow, deletes the run, and keeps an audit event", async () => {
+    const created = await app.inject({ method: "POST", url: "/v1/chat", headers: auth(), payload: { text: "stuck run", idempotencyKey: "del-1" } });
+    const runId = created.json().runId as string;
+
+    const del = await app.inject({ method: "DELETE", url: `/v1/runs/${runId}`, headers: auth() });
+    expect(del.statusCode).toBe(200);
+    expect(del.json().ok).toBe(true);
+    expect(engine.cancels).toEqual([{ runId }]);
+
+    const after = await app.inject({ method: "GET", url: `/v1/runs/${runId}`, headers: auth() });
+    expect(after.statusCode).toBe(404);
+
+    const audit = await db.query<{ event_type: string }>("SELECT event_type FROM audit_events WHERE run_id = $1", [runId]);
+    expect(audit.rows.map((r) => r.event_type)).toContain("run.deleted");
+  });
+
+  it("still deletes when the orchestrator cannot be reached", async () => {
+    const created = await app.inject({ method: "POST", url: "/v1/chat", headers: auth(), payload: { text: "wedged", idempotencyKey: "del-2" } });
+    const runId = created.json().runId as string;
+    engine.failCancel = true;
+    const del = await app.inject({ method: "DELETE", url: `/v1/runs/${runId}`, headers: auth() });
+    expect(del.statusCode).toBe(200);
+    expect(del.json().cancelError).toBe("orchestrator unreachable");
+  });
+
+  it("is tenant-scoped: another tenant cannot delete the run", async () => {
+    const created = await app.inject({ method: "POST", url: "/v1/chat", headers: auth(), payload: { text: "mine", idempotencyKey: "del-3" } });
+    const runId = created.json().runId as string;
+    const other = await createTenant(db, "other-delete");
+    const res = await app.inject({ method: "DELETE", url: `/v1/runs/${runId}`, headers: { authorization: `Bearer ${other.token}` } });
+    expect(res.statusCode).toBe(404);
+    const stillThere = await app.inject({ method: "GET", url: `/v1/runs/${runId}`, headers: auth() });
+    expect(stillThere.statusCode).toBe(200);
+  });
+
+  it("404s for an unknown run", async () => {
+    const res = await app.inject({ method: "DELETE", url: "/v1/runs/run_nope", headers: auth() });
+    expect(res.statusCode).toBe(404);
   });
 });
 
@@ -136,5 +185,15 @@ describe("GET /v1/dashboard", () => {
     expect(res.json()).toMatchObject({ counts: { pending: 1 }, failures: [] });
     expect(res.json().runs).toHaveLength(1);
     expect(res.json().audit[0].event_type).toBe("run.created");
+  });
+});
+
+
+describe("GET /v1/system/status", () => {
+  it("reports runtime truth without returning secrets", async () => {
+    const res = await app.inject({ method: "GET", url: "/v1/system/status", headers: auth() });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ planner: { mode: "openai-compatible", live: true }, provider: "google", google: { connected: false, docs: false } });
+    expect(JSON.stringify(res.json())).not.toContain("secret");
   });
 });

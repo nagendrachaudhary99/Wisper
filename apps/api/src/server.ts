@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   createRunOnce,
   decideApproval,
+  deleteRun,
   appendAudit,
   getApproval,
   getRun,
@@ -14,6 +15,7 @@ import {
   type Queryable,
   type Tenant,
   dashboardSnapshot,
+  getOAuthConnection,
 } from "@wisper/db";
 import type { RunEngine } from "./engine.js";
 import { beginGoogleOAuth, finishGoogleOAuth, type GoogleOAuthConfig } from "./google-oauth.js";
@@ -38,6 +40,7 @@ export interface ServerDeps {
   db: Queryable;
   engine: RunEngine;
   googleOAuth?: GoogleOAuthConfig;
+  runtime?: { planner: "openai-compatible" | "deterministic"; provider: "google" | "fake" };
 }
 
 export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
@@ -61,6 +64,24 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
   });
 
   app.get("/health", async () => ({ ok: true }));
+
+  app.get("/v1/system/status", async (req) => {
+    const tenant = req.tenant!;
+    const google = await getOAuthConnection(db, tenant.id, "google");
+    return {
+      planner: { mode: deps.runtime?.planner ?? "deterministic", live: deps.runtime?.planner === "openai-compatible" },
+      google: {
+        configured: Boolean(deps.googleOAuth),
+        connected: Boolean(google),
+        accountEmail: google?.provider_account_email ?? null,
+        scopes: google?.scopes ?? [],
+        gmail: Boolean(google?.scopes.includes("https://www.googleapis.com/auth/gmail.readonly")),
+        calendar: Boolean(google?.scopes.includes("https://www.googleapis.com/auth/calendar.events")),
+        docs: false,
+      },
+      provider: deps.runtime?.provider ?? "fake",
+    };
+  });
 
   app.get("/v1/oauth/google/start", async (req, reply) => {
     if (!deps.googleOAuth) return reply.code(503).send({ error: "Google OAuth is not configured" });
@@ -129,6 +150,32 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
       approvals: approvals.filter((a) => a.run_id === id),
       audit,
     };
+  });
+
+  /**
+   * Delete a run: cancels its workflow best-effort, then removes the run row
+   * (steps, approvals and attempts cascade). The audit trail keeps both the
+   * run's history and this deletion event.
+   */
+  app.delete("/v1/runs/:id", async (req, reply) => {
+    const tenant = req.tenant!;
+    const { id } = req.params as { id: string };
+    const run = await getRun(db, tenant.id, id);
+    if (!run) return reply.code(404).send({ error: "run not found" });
+    let cancelError: string | null = null;
+    try {
+      await engine.cancelRun({ tenantId: tenant.id, runId: id });
+    } catch (err) {
+      // Deletion still proceeds: a wedged orchestrator must not make a stuck
+      // run undeletable from the dashboard.
+      cancelError = err instanceof Error ? err.message : String(err);
+    }
+    await appendAudit(db, {
+      tenantId: tenant.id, runId: id, actor: "api",
+      eventType: "run.deleted", data: { status: run.status, cancelError },
+    });
+    await deleteRun(db, tenant.id, id);
+    return { ok: true, cancelError };
   });
 
   app.get("/v1/dashboard", async (req) => {

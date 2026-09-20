@@ -35,6 +35,14 @@ export interface ChatWorkflowInput {
   text: string;
 }
 
+/** Deepest cause message: Temporal wraps activity errors, and the readable reason lives at the bottom of the cause chain. */
+function failureMessage(err: unknown): string {
+  let message = String(err);
+  let current: unknown = err;
+  while (current instanceof Error) { message = current.message; current = current.cause; }
+  return message.slice(0, 500);
+}
+
 export const APPROVAL_WAIT_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export async function chatWorkflow(input: ChatWorkflowInput): Promise<{ status: string }> {
@@ -45,7 +53,14 @@ export async function chatWorkflow(input: ChatWorkflowInput): Promise<{ status: 
   });
   setHandler(runStatusQuery, () => phase);
 
-  const plan: Plan = await acts.planSteps({ tenantId: input.tenantId, runId: input.runId, text: input.text });
+  let plan: Plan;
+  try {
+    plan = await acts.planSteps({ tenantId: input.tenantId, runId: input.runId, text: input.text });
+  } catch (err) {
+    phase = "planning failed";
+    await acts.finalizeRun({ tenantId: input.tenantId, runId: input.runId, ok: false, error: `planning failed: ${failureMessage(err)}` });
+    return { status: "failed" };
+  }
 
   const kindCounts = new Map<string, number>();
   try {
@@ -98,8 +113,7 @@ export async function chatWorkflow(input: ChatWorkflowInput): Promise<{ status: 
       kindCounts.set(intent.kind, (kindCounts.get(intent.kind) ?? 0) + 1);
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    await acts.finalizeRun({ tenantId: input.tenantId, runId: input.runId, ok: false, error: message });
+    await acts.finalizeRun({ tenantId: input.tenantId, runId: input.runId, ok: false, error: failureMessage(err) });
     return { status: "failed" };
   }
 

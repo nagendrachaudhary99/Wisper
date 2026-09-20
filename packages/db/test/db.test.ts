@@ -4,8 +4,11 @@ import {
   PgliteQueryable,
   migrate,
   createTenant,
+  addApiToken,
   tenantForToken,
+  rotateSoleApiToken,
   createRunOnce,
+  deleteRun,
   getRun,
   upsertStep,
   setStepStatus,
@@ -19,6 +22,7 @@ import {
   appendAudit,
   listAuditForRun,
   type Queryable,
+  type QueryExecutor,
 } from "../src/index.js";
 
 let db: Queryable;
@@ -46,6 +50,23 @@ describe("auth", () => {
   it("resolves a token to its tenant and rejects unknown tokens", async () => {
     expect((await tenantForToken(db, token))?.id).toBe(tenantId);
     expect(await tenantForToken(db, "wsp_wrong")).toBeNull();
+  });
+
+  it("rotates the sole token while preserving tenant data", async () => {
+    const { run } = await createRunOnce(db, { tenantId, idempotencyKey: "before-rotation", kind: "chat", input: {} });
+    const replacement = await rotateSoleApiToken(db, tenantId);
+
+    expect(replacement.token).not.toBe(token);
+    expect(await tenantForToken(db, token)).toBeNull();
+    expect((await tenantForToken(db, replacement.token))?.id).toBe(tenantId);
+    expect((await getRun(db, tenantId, run.id))?.id).toBe(run.id);
+  });
+
+  it("refuses ambiguous rotation rather than revoking multiple tokens", async () => {
+    await addApiToken(db, tenantId, "wsp_second", "second");
+    await expect(rotateSoleApiToken(db, tenantId)).rejects.toThrow(/expected exactly one API token, found 2/);
+    expect((await tenantForToken(db, token))?.id).toBe(tenantId);
+    expect((await tenantForToken(db, "wsp_second"))?.id).toBe(tenantId);
   });
 });
 
@@ -132,5 +153,47 @@ describe("crash recovery at the persistence layer", () => {
     const reloaded = await listSteps(db, run.id);
     expect(reloaded[0]!.status).toBe("completed");
     expect((reloaded[0]!.result as { ok: boolean }).ok).toBe(true);
+  });
+});
+
+describe("migrations", () => {
+  it("uses the driver transaction API instead of pooled transaction-control queries", async () => {
+    const controlStatements: string[] = [];
+    let transactions = 0;
+    const query: Queryable["query"] = async <T>(text: string) => {
+      if (/^(BEGIN|COMMIT|ROLLBACK)\b/i.test(text.trim())) controlStatements.push(text.trim());
+      return { rows: [] as T[], rowCount: 0 };
+    };
+    const compatibleDb: Queryable = {
+      query,
+      async transaction<T>(callback: (tx: QueryExecutor) => Promise<T>): Promise<T> {
+        transactions += 1;
+        return callback({ query });
+      },
+      async close(): Promise<void> {},
+    };
+
+    expect(await migrate(compatibleDb)).toEqual(["0001_init", "0002_oauth", "0003_oauth_scope_guard"]);
+    expect(transactions).toBe(3);
+    expect(controlStatements).toEqual([]);
+  });
+});
+
+describe("deleteRun", () => {
+  it("removes the run with cascading children while the audit trail survives", async () => {
+    const { run } = await createRunOnce(db, { tenantId, idempotencyKey: "del", kind: "chat", input: { text: "stuck" } });
+    const step = await upsertStep(db, { runId: run.id, ordinal: 0, kind: intent.kind, actionHash: actionHash(intent) });
+    await createApprovalOnce(db, { tenantId, runId: run.id, stepId: step.id, actionHash: step.action_hash, action: intent });
+    await appendAudit(db, { tenantId, runId: run.id, actor: "api", eventType: "run.created", data: {} });
+
+    expect(await deleteRun(db, tenantId, run.id)).toBe(true);
+    expect(await getRun(db, tenantId, run.id)).toBeNull();
+    expect(await listSteps(db, run.id)).toHaveLength(0);
+    expect((await listApprovals(db, tenantId)).filter((a) => a.run_id === run.id)).toHaveLength(0);
+
+    const audit = await listAuditForRun(db, tenantId, run.id);
+    expect(audit.map((e) => e.event_type)).toContain("run.created");
+
+    expect(await deleteRun(db, tenantId, run.id)).toBe(false);
   });
 });

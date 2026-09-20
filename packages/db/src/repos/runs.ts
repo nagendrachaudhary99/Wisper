@@ -70,3 +70,13 @@ export async function setRunStatus(
     [tenantId, runId, status, patch.plan !== undefined ? JSON.stringify(patch.plan) : null, patch.error ?? null],
   );
 }
+
+/**
+ * Delete a run. Steps, approvals and action_attempts cascade away with it;
+ * audit_events survive (append-only, no FK) so the trail of what happened -
+ * including the deletion itself - is never lost.
+ */
+export async function deleteRun(db: Queryable, tenantId: string, runId: string): Promise<boolean> {
+  const { rowCount } = await db.query("DELETE FROM runs WHERE tenant_id = $1 AND id = $2", [tenantId, runId]);
+  return (rowCount ?? 0) > 0;
+}

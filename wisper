@@ -1,9 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 case "${1:-} ${2:-}" in
-  "local up") docker compose --profile app up --build -d; docker compose exec api pnpm migrate; docker compose exec api pnpm seed dev ;;
-  "local down") docker compose --profile app down ;;
-  "local logs") docker compose --profile app logs -f --tail=150 ;;
-  "local status") docker compose --profile app ps ;;
-  *) echo "Usage: ./wisper local {up|down|logs|status}" >&2; exit 2 ;;
+  "local up")
+    docker compose --profile local up --build -d
+    docker compose exec api pnpm migrate
+    tenant_count="$(docker compose exec -T db psql -U wisper -d wisper -tAc 'SELECT count(*) FROM tenants')"
+    if [ "$tenant_count" = "0" ]; then docker compose exec api pnpm seed dev; else echo "Existing tenant kept; no demo data seeded."; fi
+    ;;
+  "local install-model-key") ./scripts/install-local-secret.sh wisper-model-api-key MODEL_API_KEY ;;
+  "local install-google-secret") ./scripts/install-local-secret.sh wisper-google-client-secret GOOGLE_CLIENT_SECRET ;;
+  "local install-oauth-key") ./scripts/install-local-secret.sh wisper-oauth-encryption-key OAUTH_ENCRYPTION_KEY ;;
+  "local down") docker compose --profile local down ;;
+  "local logs") docker compose --profile local logs -f --tail=150 ;;
+  "local status") docker compose --profile local ps ;;
+  "local rotate-token")
+    [ -n "${3:-}" ] || { echo "Usage: ./wisper local rotate-token <tenant_id>" >&2; exit 2; }
+    docker compose run --rm --build --no-deps api pnpm --filter @wisper/db run rotate-token "$3"
+    ;;
+  *) echo "Usage: ./wisper local {up|down|logs|status|rotate-token <tenant_id>|install-model-key|install-google-secret|install-oauth-key}" >&2; exit 2 ;;
 esac

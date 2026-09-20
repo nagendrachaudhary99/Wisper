@@ -29,7 +29,8 @@ deploy configs. See `docs/ROADMAP.md`.
 Requires Node 20+, pnpm, Docker.
 
 ```bash
-docker compose up -d        # Postgres + Temporal (+ Temporal UI on :8233)
+docker compose up -d        # Postgres + Temporal only (host dev)
+# Full container stack instead: ./wisper local up  (see docs/LOCAL_BETA.md)
 pnpm install
 cp .env.example .env
 pnpm migrate                # apply schema

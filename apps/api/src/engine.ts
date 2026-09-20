@@ -12,6 +12,8 @@ export interface RunEngine {
     approved: boolean;
     decidedBy: string;
   }): Promise<void>;
+  /** Best-effort cancel of the workflow behind a run; already-closed workflows are a no-op. */
+  cancelRun(args: { tenantId: string; runId: string }): Promise<void>;
 }
 
 export class TemporalRunEngine implements RunEngine {
@@ -45,6 +47,16 @@ export class TemporalRunEngine implements RunEngine {
       });
     } catch (err) {
       if (err instanceof Error && err.name === "WorkflowExecutionAlreadyStartedError") return;
+      throw err;
+    }
+  }
+
+  async cancelRun(args: { tenantId: string; runId: string }): Promise<void> {
+    const client = await this.clientPromise;
+    try {
+      await client.getHandle(this.handleId(args.runId)).cancel();
+    } catch (err) {
+      if (err instanceof Error && err.name === "WorkflowNotFoundError") return;
       throw err;
     }
   }
