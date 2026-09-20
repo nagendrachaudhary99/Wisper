@@ -27,3 +27,17 @@ grep -q -- '--profile local' wisper \
   || fail "./wisper must use --profile local"
 
 echo "compose preflight OK"
+
+# Provider-mode precedence: .env.local (env_file) is authoritative. An
+# environment: entry for PROVIDER_MODE would mask it, so none may exist.
+! grep -q 'PROVIDER_MODE:' docker-compose.yml \
+  || fail "compose must not set PROVIDER_MODE in environment: (it masks .env.local; env_file must be the only source)"
+grep -c 'path: .env.local' docker-compose.yml | grep -q '^2$' \
+  || fail "api and worker must both load .env.local via env_file"
+
+# Browser-to-API routing: the vite dev proxy must target the api compose
+# service, not localhost (which would be the web container itself).
+grep -q '"http://api:3001"' apps/web/vite.config.ts \
+  || fail "vite dev proxy must default to http://api:3001 (the api compose service)"
+
+echo "provider-mode and web-routing preflight OK"

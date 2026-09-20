@@ -7,6 +7,7 @@ import { FakeCalendarProvider, FakeGmailProvider } from "./providers/fake.js";
 import { GoogleCalendarProvider, GoogleGmailProvider } from "./providers/google.js";
 import { TenantGoogleTokenSource } from "./providers/google-token.js";
 import { HttpModelPlanner } from "./model-planner.js";
+import { resolveProviderMode } from "./config.js";
 
 /**
  * Worker bootstrap. Providers are chosen by environment: with no Google
@@ -21,7 +22,7 @@ async function main(): Promise<void> {
 
   const db = new PgQueryable(databaseUrl);
   const tenantId = process.env.WISPER_TENANT_ID;
-  const liveGoogle = process.env.PROVIDER_MODE === "google";
+  const liveGoogle = resolveProviderMode(process.env) === "google";
   let providers = { gmail: new FakeGmailProvider() as import("@wisper/contracts").GmailProvider, calendar: new FakeCalendarProvider() as import("@wisper/contracts").CalendarProvider };
   if (liveGoogle) {
     if (!tenantId || !process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.OAUTH_ENCRYPTION_KEY) throw new Error("Google mode requires WISPER_TENANT_ID, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and OAUTH_ENCRYPTION_KEY");

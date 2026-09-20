@@ -67,7 +67,6 @@ services:
     environment:
       DATABASE_URL: postgres://wisper:wisper@db:5432/wisper
       TEMPORAL_ADDRESS: temporal:7233
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3001}
     ports: ["127.0.0.1:3001:3001"]
 
@@ -82,7 +81,6 @@ services:
     environment:
       DATABASE_URL: postgres://wisper:wisper@db:5432/wisper
       TEMPORAL_ADDRESS: temporal:7233
-      PROVIDER_MODE: ${PROVIDER_MODE:-fake}
 
   web:
     profiles: ["local"]
