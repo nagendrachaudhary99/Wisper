@@ -2,3 +2,4 @@
 .runtime{display:flex;gap:8px;flex-wrap:wrap;margin:-6px 0 16px}.runtime span{font-size:11px;border:1px solid #dfe6e1;background:#fff;padding:6px 9px;border-radius:999px}.runtime .ok{color:#167342;background:#e6f5eb;border-color:#bee4ca}.runtime .warn{color:#8a641d;background:#fff7df;border-color:#eedda9}.hint{font-size:11px;color:#7b897f}.results>div{padding:10px 0;border-bottom:1px solid #edf0ed}.results strong{font-size:12px;margin-right:8px}.results pre{font-size:10px;max-height:140px;overflow:auto;background:#f6f8f6;padding:8px;border-radius:7px;white-space:pre-wrap}
 
 .mail{padding:9px 0;border-bottom:1px solid #f0f2f0}.mail strong{display:block;font-size:13px}.mail small{display:block;color:#829087;font-size:11px;margin-top:3px}
+.item button.ghost{background:transparent;color:#829087}
