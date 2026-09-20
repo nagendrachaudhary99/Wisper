@@ -8,6 +8,7 @@ import {
   tenantForToken,
   rotateSoleApiToken,
   createRunOnce,
+  deleteRun,
   getRun,
   upsertStep,
   setStepStatus,
@@ -175,5 +176,24 @@ describe("migrations", () => {
     expect(await migrate(compatibleDb)).toEqual(["0001_init", "0002_oauth", "0003_oauth_scope_guard"]);
     expect(transactions).toBe(3);
     expect(controlStatements).toEqual([]);
+  });
+});
+
+describe("deleteRun", () => {
+  it("removes the run with cascading children while the audit trail survives", async () => {
+    const { run } = await createRunOnce(db, { tenantId, idempotencyKey: "del", kind: "chat", input: { text: "stuck" } });
+    const step = await upsertStep(db, { runId: run.id, ordinal: 0, kind: intent.kind, actionHash: actionHash(intent) });
+    await createApprovalOnce(db, { tenantId, runId: run.id, stepId: step.id, actionHash: step.action_hash, action: intent });
+    await appendAudit(db, { tenantId, runId: run.id, actor: "api", eventType: "run.created", data: {} });
+
+    expect(await deleteRun(db, tenantId, run.id)).toBe(true);
+    expect(await getRun(db, tenantId, run.id)).toBeNull();
+    expect(await listSteps(db, run.id)).toHaveLength(0);
+    expect((await listApprovals(db, tenantId)).filter((a) => a.run_id === run.id)).toHaveLength(0);
+
+    const audit = await listAuditForRun(db, tenantId, run.id);
+    expect(audit.map((e) => e.event_type)).toContain("run.created");
+
+    expect(await deleteRun(db, tenantId, run.id)).toBe(false);
   });
 });

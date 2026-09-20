@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   createRunOnce,
   decideApproval,
+  deleteRun,
   appendAudit,
   getApproval,
   getRun,
@@ -149,6 +150,32 @@ export async function buildServer(deps: ServerDeps): Promise<FastifyInstance> {
       approvals: approvals.filter((a) => a.run_id === id),
       audit,
     };
+  });
+
+  /**
+   * Delete a run: cancels its workflow best-effort, then removes the run row
+   * (steps, approvals and attempts cascade). The audit trail keeps both the
+   * run's history and this deletion event.
+   */
+  app.delete("/v1/runs/:id", async (req, reply) => {
+    const tenant = req.tenant!;
+    const { id } = req.params as { id: string };
+    const run = await getRun(db, tenant.id, id);
+    if (!run) return reply.code(404).send({ error: "run not found" });
+    let cancelError: string | null = null;
+    try {
+      await engine.cancelRun({ tenantId: tenant.id, runId: id });
+    } catch (err) {
+      // Deletion still proceeds: a wedged orchestrator must not make a stuck
+      // run undeletable from the dashboard.
+      cancelError = err instanceof Error ? err.message : String(err);
+    }
+    await appendAudit(db, {
+      tenantId: tenant.id, runId: id, actor: "api",
+      eventType: "run.deleted", data: { status: run.status, cancelError },
+    });
+    await deleteRun(db, tenant.id, id);
+    return { ok: true, cancelError };
   });
 
   app.get("/v1/dashboard", async (req) => {

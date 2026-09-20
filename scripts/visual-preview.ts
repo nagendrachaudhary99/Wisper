@@ -24,6 +24,7 @@ class InProcessEngine implements RunEngine {
   async startChatRun(args: { tenantId: string; runId: string; text: string }): Promise<void> {
     void this.drive(args).catch(async (err) => { console.error("driver error", err); await setRunStatus(this.db, args.tenantId, args.runId, "failed", { error: err instanceof Error ? err.message : String(err) }); });
   }
+  async cancelRun(): Promise<void> { /* in-process driver: nothing to cancel; db delete is enough for the preview */ }
   async signalApproval(args: { tenantId: string; runId: string; approved: boolean }): Promise<void> {
     void this.resume(args).catch((err) => console.error("driver error", err));
   }

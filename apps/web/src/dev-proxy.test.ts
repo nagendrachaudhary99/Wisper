@@ -27,10 +27,12 @@ describe("ApiClient request paths", () => {
     await client.dashboard();
     await client.status();
     await client.run("run_123");
+    await client.deleteRun("run_123");
     expect(calls).toEqual([
       ["GET", "/v1/dashboard"],
       ["GET", "/v1/system/status"],
       ["GET", "/v1/runs/run_123"],
+      ["DELETE", "/v1/runs/run_123"],
     ]);
   });
 });
