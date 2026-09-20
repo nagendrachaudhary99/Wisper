@@ -15,3 +15,16 @@ export class ApiClient {
  pendingApprovals(){return this.call<{approvals:Approval[]}>("/v1/approvals?status=pending");}
  decide(id:string,approved:boolean){return this.call<{ok:boolean;status:string}>(`/v1/approvals/${id}/decision`,{method:"POST",body:JSON.stringify({approved,decidedBy:"web-user"})});}
 }
+
+export interface GmailMessageView { messageId?:string; from?:string; subject?:string; snippet?:string; receivedAt?:string; }
+/** Step results arrive from the API as JSON strings; parse when possible, else keep the raw text. */
+export function parseJsonResult(result:unknown):unknown {
+ if(typeof result!=="string")return result;
+ try{return JSON.parse(result) as unknown;}catch{return result;}
+}
+/** Gmail summaries when the result is a gmail.read payload; null for anything else. */
+export function gmailMessagesOf(result:unknown):GmailMessageView[]|null {
+ const data=parseJsonResult(result);
+ if(data&&typeof data==="object"&&Array.isArray((data as {messages?:unknown}).messages))return (data as {messages:GmailMessageView[]}).messages;
+ return null;
+}
