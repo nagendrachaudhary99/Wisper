@@ -102,5 +102,7 @@ async function callProvider(providers: Providers, intent: ActionIntent): Promise
       return { messages: await providers.gmail.listUnread(intent.input) };
     case "calendar.create_event":
       return providers.calendar.createEvent(intent.input);
+    case "calendar.delete_event":
+      return providers.calendar.deleteEvent(intent.input);
   }
 }

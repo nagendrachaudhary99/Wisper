@@ -4,6 +4,7 @@ import {
   defineSignal,
   proxyActivities,
   setHandler,
+  sleep, executeChild, workflowInfo, continueAsNew,
 } from "@temporalio/workflow";
 import type { ActionIntent, Plan } from "@wisper/contracts";
 import type { PolicyEffect } from "@wisper/policy";
@@ -120,4 +121,19 @@ export async function chatWorkflow(input: ChatWorkflowInput): Promise<{ status: 
   phase = "completed";
   await acts.finalizeRun({ tenantId: input.tenantId, runId: input.runId, ok: true });
   return { status: "completed" };
+}
+
+
+export interface RecurringWorkflowInput { tenantId:string; recurringRunId:string; workflowId:string; text:string; intervalMinutes:number; iteration?:number; }
+/** A durable Temporal timer owns cadence. Each fire creates a normal run and child chat workflow, so dashboard history and approval gates are identical to one-off work. */
+export async function recurringWorkflow(input:RecurringWorkflowInput):Promise<never>{
+  let iteration=input.iteration??0;
+  while(iteration<100){
+    await sleep(`${input.intervalMinutes} minutes`);
+    const fireKey=`${workflowInfo().runId}:${iteration}`;
+    const {runId}=await acts.createRecurringOccurrence({...input,fireKey});
+    await executeChild(chatWorkflow,{workflowId:`chat-${runId}`,args:[{tenantId:input.tenantId,runId,text:input.text}]});
+    iteration++;
+  }
+  return continueAsNew<typeof recurringWorkflow>({...input,iteration:0});
 }

@@ -5,6 +5,8 @@
  */
 export interface RunEngine {
   startChatRun(args: { tenantId: string; runId: string; text: string }): Promise<void>;
+  startRecurringRun(args: { tenantId:string; recurringRunId:string; workflowId:string; text:string; intervalMinutes:number }): Promise<void>;
+  cancelRecurringRun(args: { workflowId:string }): Promise<void>;
   signalApproval(args: {
     tenantId: string;
     runId: string;
@@ -49,6 +51,17 @@ export class TemporalRunEngine implements RunEngine {
       if (err instanceof Error && err.name === "WorkflowExecutionAlreadyStartedError") return;
       throw err;
     }
+  }
+
+
+  async startRecurringRun(args: { tenantId:string; recurringRunId:string; workflowId:string; text:string; intervalMinutes:number }): Promise<void> {
+    const client=await this.clientPromise;
+    await client.start("recurringWorkflow", { workflowId:args.workflowId, taskQueue:this.taskQueue, args:[args], workflowIdConflictPolicy:"FAIL" });
+  }
+
+  async cancelRecurringRun(args:{workflowId:string}):Promise<void>{
+    const client=await this.clientPromise;
+    try { await client.getHandle(args.workflowId).cancel(); } catch(err) { if(err instanceof Error && err.name==="WorkflowNotFoundError") return; throw err; }
   }
 
   async cancelRun(args: { tenantId: string; runId: string }): Promise<void> {

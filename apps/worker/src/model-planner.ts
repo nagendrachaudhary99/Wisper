@@ -5,9 +5,10 @@ export interface ModelPlannerAdapterOptions { endpoint: string; apiKey: string; 
 function systemPrompt(today: string): string {
   return [
     "Return only JSON matching {summary,steps:[{ordinal,intent:{kind,input},rationale}]}.",
-    "Allowed kinds: gmail.read and calendar.create_event.",
+    "Allowed kinds: gmail.read, calendar.create_event, and calendar.delete_event.",
     "Input schemas:",
     "- gmail.read: {maxResults?: integer 1-50 (default 10), query?: string}. A gmail read needs no other facts: never decline a gmail read for missing facts, and never emit zero steps when the user asks to read, show, or list email.",
+    "- calendar.delete_event: {eventId: string}. Use only when the user supplies the exact event id and asks to delete/cancel it.",
     "- calendar.create_event: {summary: string, start: ISO 8601 datetime with offset, end: ISO 8601 datetime with offset, location?: string, attendees?: string[], description?: string}.",
     `Today's date is ${today}; resolve relative dates (today, tomorrow, next Friday) against it.`,
     "Never invent missing dates or recipients; emit zero steps only when a calendar.create_event is requested and required facts (summary, start, end) cannot be determined.",

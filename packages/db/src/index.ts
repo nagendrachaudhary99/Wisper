@@ -10,3 +10,4 @@ export * from "./crypto.js";
 export * from "./repos/oauth.js";
 
 export * from "./repos/dashboard.js";
+export * from "./repos/recurring.js";

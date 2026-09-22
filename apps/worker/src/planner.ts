@@ -23,8 +23,11 @@ export class DeterministicPlanner implements ModelPlanner {
       });
     }
 
+    const deleteMatch=text.match(/(?:delete|remove|cancel).*?(?:event\s+)?((?:[a-zA-Z0-9_-]{6,}))/i);
+    if(deleteMatch?.[1])steps.push({ordinal:steps.length,intent:{kind:"calendar.delete_event",input:{eventId:deleteMatch[1]}},rationale:"Exact event id supplied for approval-gated cleanup."});
+
     const calendarMatch = /\b(calendar|schedule|meeting|event|book)\b/.test(lower);
-    if (calendarMatch) {
+    if (calendarMatch && !deleteMatch) {
       const summary = extractSummary(text) ?? "New event";
       // Placeholder window: a real planner resolves times from the request.
       const start = new Date(Date.now() + 24 * 60 * 60 * 1000);

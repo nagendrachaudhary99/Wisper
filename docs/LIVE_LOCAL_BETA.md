@@ -64,3 +64,12 @@ Run these separately from the dashboard:
 3. `Show unread Gmail messages about security alerts, maximum 3.` This checks real model planning with a query filter and shows the provider result in Latest results.
 
 The Work queue, Latest results, approval card, and audit timeline all come from Postgres. No demo rows are inserted on restart.
+
+## M4 reliable repeatable work
+
+- Recurring runs use durable Temporal timers. Each fire creates a normal run and child workflow, so approvals, retries, duplicate prevention, and dashboard history are preserved.
+- The selected-run view shows the planner output, per-step policy decision, provider request/response, and final result.
+- Calendar writes use the live Google Calendar API only when `PROVIDER_MODE=google`; every create remains approval gated.
+
+### Honest live Calendar proof
+Create a short test event from the dashboard, approve the exact event, then open the returned Google Calendar link. Copy the returned event ID into a second dashboard request such as `Delete calendar event EVENT_ID`, approve that exact deletion, and verify the event is gone. Create and cleanup are both real Google API calls and both are approval gated.
