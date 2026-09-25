@@ -53,3 +53,44 @@ describe("idempotencyKeyFor", () => {
     expect(idempotencyKeyFor("t1", "run1:1", intent)).not.toBe(base);
   });
 });
+
+describe("parsePlan", () => {
+  it("accepts a gmail.read step that omits input and defaults it", async () => {
+    const { parsePlan } = await import("../src/index.js");
+    const plan = parsePlan({
+      summary: "Search Gmail for interview updates.",
+      steps: [{ ordinal: 0, intent: { kind: "gmail.read" }, rationale: "read needs no facts" }],
+    });
+    expect(plan.steps).toHaveLength(1);
+    expect(plan.steps[0]!.intent).toEqual({ kind: "gmail.read", input: { maxResults: 10 } });
+  });
+
+  it("rejects a calendar.create_event step without input with a readable reason", async () => {
+    const { parsePlan } = await import("../src/index.js");
+    let message = "";
+    try {
+      parsePlan({
+        summary: "Create dinner.",
+        steps: [{ ordinal: 0, intent: { kind: "calendar.create_event" }, rationale: "requested" }],
+      });
+    } catch (err) {
+      message = err instanceof Error ? err.message : String(err);
+    }
+    expect(message).toContain("invalid plan");
+    expect(message).toContain("step 1 (calendar.create_event) intent.input: required");
+    expect(message).not.toContain('[{"code"');
+  });
+
+  it("still rejects unknown kinds and schema-weak inputs", async () => {
+    const { parsePlan } = await import("../src/index.js");
+    expect(() =>
+      parsePlan({ summary: "x", steps: [{ ordinal: 0, intent: { kind: "gmail.delete", input: {} }, rationale: "r" }] }),
+    ).toThrow("invalid plan");
+    expect(() =>
+      parsePlan({
+        summary: "x",
+        steps: [{ ordinal: 0, intent: { kind: "gmail.read", input: { maxResults: "5" } }, rationale: "r" }],
+      }),
+    ).toThrow("invalid plan");
+  });
+});

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpModelPlanner } from "../src/model-planner.js";
+import { DeterministicPlanner } from "../src/planner.js";
 
 /**
  * Planner reliability release gate.
@@ -45,7 +46,7 @@ function plannerWithModel(modelContent: string | null, opts: { httpStatus?: numb
 
 type Expectation =
   | { kind: "plan"; summaryIncludes?: string; steps: Array<{ kind: string; input: Record<string, unknown> }> }
-  | { kind: "throw"; messageIncludes?: string };
+  | { kind: "throw"; messageIncludes?: string; messageExcludes?: string };
 
 const evalCases: Array<{ name: string; prompt: string; modelContent: string | null; httpStatus?: number; expect: Expectation }> = [
   {
@@ -117,6 +118,34 @@ const evalCases: Array<{ name: string; prompt: string; modelContent: string | nu
     expect: { kind: "throw" },
   },
   {
+    name: "information request with no filter ('find any interview update') plans a gmail.read even when the model omits input",
+    prompt: "find any interview update",
+    modelContent: JSON.stringify({
+      summary: "Search Gmail for interview updates.",
+      steps: [
+        {
+          ordinal: 0,
+          intent: { kind: "gmail.read" },
+          rationale: "User asked to find updates; a gmail read needs no other facts.",
+        },
+      ],
+    }),
+    expect: { kind: "plan", steps: [{ kind: "gmail.read", input: { maxResults: 10 } }] },
+  },
+  {
+    name: "calendar step with missing input fails with a readable reason, not a raw zod dump",
+    prompt: "Put dinner with Sam on my calendar",
+    modelContent: JSON.stringify({
+      summary: "Create dinner with Sam.",
+      steps: [{ ordinal: 0, intent: { kind: "calendar.create_event" }, rationale: "requested" }],
+    }),
+    expect: {
+      kind: "throw",
+      messageIncludes: "step 1 (calendar.create_event) intent.input: required",
+      messageExcludes: '[{"code"',
+    },
+  },
+  {
     name: "malformed model JSON fails safe",
     prompt: "Show my 5 latest unread Gmail messages",
     modelContent: '{"summary": "broken", "steps": [{',
@@ -158,6 +187,13 @@ describe("planner eval harness", () => {
         const failure = planner.plan(c.prompt);
         await expect(failure).rejects.toThrow();
         if (c.expect.messageIncludes) await expect(failure).rejects.toThrow(c.expect.messageIncludes);
+        if (c.expect.messageExcludes) {
+          const message = await failure.then(
+            () => "",
+            (err: unknown) => (err instanceof Error ? err.message : String(err)),
+          );
+          expect(message).not.toContain(c.expect.messageExcludes);
+        }
         return;
       }
       const plan = await planner.plan(c.prompt);
@@ -196,5 +232,13 @@ describe("planner request contract", () => {
     expect(system).toContain("Never invent missing dates or recipients");
     expect(system).toContain(`Today's date is ${new Date().toISOString().slice(0, 10)}`);
     expect(req.body.messages.find((m) => m.role === "user")?.content).toBe("anything");
+  });
+});
+
+describe("deterministic planner", () => {
+  it("an information request with no clear action plans zero steps instead of emitting a malformed step", async () => {
+    const plan = await new DeterministicPlanner().plan("find any interview update");
+    expect(plan.steps).toEqual([]);
+    expect(plan.summary).toContain("No actionable intent");
   });
 });

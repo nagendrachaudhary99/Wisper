@@ -22,7 +22,9 @@ export const CalendarCreateEventInput = z.object({
 export type CalendarCreateEventInput = z.infer<typeof CalendarCreateEventInput>;
 
 export const ActionIntent = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("gmail.read"), input: GmailReadInput }),
+  // A gmail read needs no facts: every input field is optional, so a step that
+  // omits input entirely is still valid and defaults to {maxResults: 10}.
+  z.object({ kind: z.literal("gmail.read"), input: GmailReadInput.default({}) }),
   z.object({ kind: z.literal("calendar.create_event"), input: CalendarCreateEventInput }),
 ]);
 export type ActionIntent = z.infer<typeof ActionIntent>;
