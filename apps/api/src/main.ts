@@ -1,6 +1,7 @@
 import { PgQueryable } from "@wisper/db";
 import { TemporalRunEngine } from "./engine.js";
 import { buildServer } from "./server.js";
+import { registerChatApprovalRoutes } from "./chat-approvals.js";
 
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL ?? "postgres://wisper:wisper@localhost:5432/wisper";
@@ -21,6 +22,8 @@ async function main(): Promise<void> {
     planner: process.env.MODEL_API_KEY ? "openai-compatible" : "deterministic",
     provider: process.env.PROVIDER_MODE === "google" ? "google" : "fake",
   } });
+  // Approval-by-chat routes; registered here so server.ts stays untouched.
+  await registerChatApprovalRoutes(app, { db, engine });
   await app.listen({ port, host: "0.0.0.0" });
   console.log(`API listening on :${port}`);
 }
