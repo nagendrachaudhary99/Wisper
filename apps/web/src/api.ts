@@ -29,3 +29,10 @@ export function gmailMessagesOf(result:unknown):GmailMessageView[]|null {
  if(data&&typeof data==="object"&&Array.isArray((data as {messages?:unknown}).messages))return (data as {messages:GmailMessageView[]}).messages;
  return null;
 }
+
+/** Explain a zero-result Gmail search using the query stored with the result. */
+export function gmailEmptyMessageOf(result:unknown):string {
+ const data=parseJsonResult(result);
+ const query=data&&typeof data==="object"&&(data as {query?:unknown}).query;
+ return typeof query==="string"&&query.trim() ? `No emails matched '${query}'.` : "No unread messages returned.";
+}

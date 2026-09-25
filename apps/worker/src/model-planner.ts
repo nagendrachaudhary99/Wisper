@@ -1,4 +1,5 @@
 import { parsePlan, type ModelPlanner } from "@wisper/contracts";
+import { gmailSearchQuery } from "./gmail-query.js";
 
 export interface ModelPlannerAdapterOptions { endpoint: string; apiKey: string; model: string; fetch?: typeof globalThis.fetch; /** Abort the model call after this many ms so a hung endpoint fails the run instead of leaving it in planning forever. Default 30s. */ timeoutMs?: number; }
 
@@ -7,7 +8,7 @@ function systemPrompt(today: string): string {
     "Return only JSON matching {summary,steps:[{ordinal,intent:{kind,input},rationale}]}.",
     "Allowed kinds: gmail.read and calendar.create_event.",
     "Input schemas:",
-    "- gmail.read: {maxResults?: integer 1-50 (default 10), query?: string}. A gmail read needs no other facts: never decline a gmail read for missing facts, never emit zero steps when the user asks to read, show, or list email, and input may be omitted entirely when there is nothing to filter by.",
+    "- gmail.read: {maxResults?: integer 1-50 (default 10), query?: string}. Default is the latest 10 unread messages when there is no query. When the user asks to find/search mail about a topic (for example, find any interview update in my email), supply a query containing the topic (e.g. interview), not an empty input. query is Gmail search syntax: use terms or quoted phrases, and operators such as from: and newer_than: when requested. A query replaces the unread default, so include is:unread only when the user asks for unread. A gmail read needs no other facts: never decline a gmail read for missing facts, never emit zero steps when the user asks to read, show, find, search, or list email, and input may be omitted entirely when there is nothing to filter by.",
     "- calendar.create_event: {summary: string, start: ISO 8601 datetime with offset, end: ISO 8601 datetime with offset, location?: string, attendees?: string[], description?: string}.",
     `Today's date is ${today}; resolve relative dates (today, tomorrow, next Friday) against it.`,
     "Never invent missing dates or recipients; emit zero steps only when a calendar.create_event is requested and required facts (summary, start, end) cannot be determined.",
@@ -37,7 +38,14 @@ export class HttpModelPlanner implements ModelPlanner {
     } catch {
       throw new Error(`Planner returned non-JSON content: ${content.slice(0, 200)}`);
     }
-    return parsePlan(parsed);
+    const plan = parsePlan(parsed);
+    // A model can still omit the filter for a clear search request. Preserve
+    // richer model queries, but prevent the empty-input all-unread fallback.
+    const fallbackQuery = gmailSearchQuery(text);
+    if (fallbackQuery) for (const step of plan.steps) {
+      if (step.intent.kind === "gmail.read" && !step.intent.input.query?.trim()) step.intent.input.query = fallbackQuery;
+    }
+    return plan;
   }
 }
 function optionsUrl(endpoint: string): string { return endpoint.replace(/\/$/, "") + "/chat/completions"; }

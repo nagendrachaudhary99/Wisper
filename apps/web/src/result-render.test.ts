@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gmailMessagesOf, parseJsonResult } from "./api.js";
+import { gmailEmptyMessageOf, gmailMessagesOf, parseJsonResult } from "./api.js";
 
 // The API stores provider output as a JSON string on the step; the dashboard
 // must render it readably, and fall back gracefully for anything else.
@@ -26,5 +26,14 @@ describe("gmailMessagesOf", () => {
     expect(gmailMessagesOf(JSON.stringify({ eventId: "e1" }))).toBeNull();
     expect(gmailMessagesOf("not json")).toBeNull();
     expect(gmailMessagesOf({ messages: "nope" })).toBeNull();
+  });
+});
+
+describe("gmailEmptyMessageOf", () => {
+  it("names the query for empty filtered reads", () => {
+    expect(gmailEmptyMessageOf('{"messages":[],"query":"interview"}')).toBe("No emails matched 'interview'.");
+  });
+  it("keeps the unread default for reads without a filter", () => {
+    expect(gmailEmptyMessageOf('{"messages":[]}')).toBe("No unread messages returned.");
   });
 });

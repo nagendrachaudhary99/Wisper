@@ -99,7 +99,7 @@ export async function executeAction(
 async function callProvider(providers: Providers, intent: ActionIntent): Promise<unknown> {
   switch (intent.kind) {
     case "gmail.read":
-      return { messages: await providers.gmail.listUnread(intent.input) };
+      return { messages: await providers.gmail.listUnread(intent.input), ...(intent.input.query ? { query: intent.input.query } : {}) };
     case "calendar.create_event":
       return providers.calendar.createEvent(intent.input);
   }

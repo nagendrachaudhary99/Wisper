@@ -1,4 +1,5 @@
 import type { ModelPlanner, Plan } from "@wisper/contracts";
+import { gmailSearchQuery } from "./gmail-query.js";
 
 /**
  * Deterministic stand-in planner for the vertical slice. It exists so the full
@@ -18,7 +19,7 @@ export class DeterministicPlanner implements ModelPlanner {
     if (/\b(gmail|inbox|email|mail|unread)\b/.test(lower)) {
       steps.push({
         ordinal: steps.length,
-        intent: { kind: "gmail.read", input: { maxResults: 10 } },
+        intent: { kind: "gmail.read", input: { maxResults: 10, ...(gmailSearchQuery(text) ? { query: gmailSearchQuery(text) } : {}) } },
         rationale: "Request mentions inbox/email; read-only summary of unread mail.",
       });
     }

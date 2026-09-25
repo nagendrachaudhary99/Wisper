@@ -118,8 +118,8 @@ const evalCases: Array<{ name: string; prompt: string; modelContent: string | nu
     expect: { kind: "throw" },
   },
   {
-    name: "information request with no filter ('find any interview update') plans a gmail.read even when the model omits input",
-    prompt: "find any interview update",
+    name: "interview search gets a query even when the model omits input",
+    prompt: "find any interview update in my email",
     modelContent: JSON.stringify({
       summary: "Search Gmail for interview updates.",
       steps: [
@@ -130,7 +130,16 @@ const evalCases: Array<{ name: string; prompt: string; modelContent: string | nu
         },
       ],
     }),
-    expect: { kind: "plan", steps: [{ kind: "gmail.read", input: { maxResults: 10 } }] },
+    expect: { kind: "plan", steps: [{ kind: "gmail.read", input: { maxResults: 10, query: "interview" } }] },
+  },
+  {
+    name: "explicit Gmail query from model remains intact",
+    prompt: "Find emails from careers@example.com about interview",
+    modelContent: JSON.stringify({
+      summary: "Search interview mail from careers@example.com.",
+      steps: [{ ordinal: 0, intent: { kind: "gmail.read", input: { query: "from:careers@example.com interview" } }, rationale: "Search mail." }],
+    }),
+    expect: { kind: "plan", steps: [{ kind: "gmail.read", input: { maxResults: 10, query: "from:careers@example.com interview" } }] },
   },
   {
     name: "calendar step with missing input fails with a readable reason, not a raw zod dump",
@@ -228,7 +237,8 @@ describe("planner request contract", () => {
     expect(req.body.response_format?.type).toBe("json_object");
     const system = req.body.messages.find((m) => m.role === "system")?.content ?? "";
     expect(system).toContain("Allowed kinds: gmail.read and calendar.create_event");
-    expect(system).toContain("never emit zero steps when the user asks to read, show, or list email");
+    expect(system).toContain("find any interview update in my email");
+    expect(system).toContain("query is Gmail search syntax");
     expect(system).toContain("Never invent missing dates or recipients");
     expect(system).toContain(`Today's date is ${new Date().toISOString().slice(0, 10)}`);
     expect(req.body.messages.find((m) => m.role === "user")?.content).toBe("anything");
@@ -236,9 +246,17 @@ describe("planner request contract", () => {
 });
 
 describe("deterministic planner", () => {
-  it("an information request with no clear action plans zero steps instead of emitting a malformed step", async () => {
+  it("a prompt without an email source plans zero steps", async () => {
     const plan = await new DeterministicPlanner().plan("find any interview update");
     expect(plan.steps).toEqual([]);
     expect(plan.summary).toContain("No actionable intent");
+  });
+  it("searches for an interview update when the user names email", async () => {
+    const plan = await new DeterministicPlanner().plan("find any interview update in my email");
+    expect(plan.steps[0]?.intent).toEqual({ kind: "gmail.read", input: { maxResults: 10, query: "interview" } });
+  });
+  it("keeps a plain email read at the 10 unread default", async () => {
+    const plan = await new DeterministicPlanner().plan("show my email");
+    expect(plan.steps[0]?.intent).toEqual({ kind: "gmail.read", input: { maxResults: 10 } });
   });
 });

@@ -14,7 +14,7 @@ export class GoogleGmailProvider implements GmailProvider {
   constructor(private readonly options: GoogleProviderOptions) { this.fetcher = options.fetch ?? globalThis.fetch; }
   async listUnread(input: { maxResults: number; query?: string }): Promise<GmailMessageSummary[]> {
     const token = await this.options.tokenSource.accessToken();
-    const q = ["is:unread", input.query].filter(Boolean).join(" ");
+    const q = input.query?.trim() || "is:unread";
     const params = new URLSearchParams({ maxResults: String(input.maxResults), q });
     const list = await googleJson<{ messages?: Array<{ id: string; threadId: string }> }>(this.fetcher, token, `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params}`);
     return Promise.all((list.messages ?? []).map(async ({ id, threadId }) => {

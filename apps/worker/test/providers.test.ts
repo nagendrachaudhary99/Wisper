@@ -14,6 +14,14 @@ describe("Google providers", () => {
     expect(rows[0]).toMatchObject({ messageId: "m1", subject: "Hi", from: "a@example.com" });
     expect(String(fetcher.mock.calls[0]![0])).toContain("is%3Aunread");
   });
+  it("uses the supplied Gmail search instead of forcing unread", async () => {
+    const fetcher = vi.fn(async (_input: string | URL) => new Response(JSON.stringify({ messages: [] }), { status: 200 }));
+    const provider = new GoogleGmailProvider({ tokenSource, fetch: fetcher as typeof fetch });
+    expect(await provider.listUnread({ maxResults: 10, query: "interview" })).toEqual([]);
+    const url = new URL(String(fetcher.mock.calls[0]![0]));
+    expect(url.searchParams.get("q")).toBe("interview");
+    expect(url.searchParams.get("maxResults")).toBe("10");
+  });
   it("creates Calendar events only through the provider execution seam", async () => {
     const fetcher = vi.fn(async (_input: string | URL, _init?: RequestInit) => new Response(JSON.stringify({ id: "e1", htmlLink: "https://calendar.test/e1" }), { status: 200 }));
     const provider = new GoogleCalendarProvider({ tokenSource, fetch: fetcher as typeof fetch });
