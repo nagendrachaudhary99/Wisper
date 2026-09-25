@@ -1,0 +1,35 @@
+.chatdock{position:fixed;right:22px;bottom:22px;z-index:50;font-size:14px}
+.chatlauncher{background:#101c16;color:#fff;border:0;border-radius:22px;padding:12px 20px;font-weight:600;box-shadow:0 8px 24px rgba(16,28,22,.25);cursor:pointer}
+.chatlauncher b{margin-left:8px;background:#e5484d;color:#fff;border-radius:10px;padding:1px 7px;font-size:12px}
+.chatpanel{width:390px;max-width:calc(100vw - 30px);height:560px;max-height:calc(100vh - 44px);display:flex;flex-direction:column;background:#fff;border:1px solid #dbe4dd;border-radius:14px;box-shadow:0 16px 40px rgba(16,28,22,.22);overflow:hidden}
+.chatpanel header{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#101c16;color:#fff}
+.chatpanel header small{color:#9fb3a7;flex:1}
+.chatclose{background:transparent;border:0;color:#9fb3a7;cursor:pointer;font-size:14px}
+.chatthread{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:#f7faf8}
+.chathint{color:#708078;font-size:13px;text-align:center;margin:auto 10px}
+.bubble{max-width:82%;padding:8px 12px;border-radius:14px;line-height:1.35;word-wrap:break-word}
+.bubble.me{align-self:flex-end;background:#1f7a4a;color:#fff;border-bottom-right-radius:4px}
+.bubble.bot{align-self:flex-start;background:#e9efeb;color:#17211b;border-bottom-left-radius:4px}
+.bubble.bot.failed,.bubble.note.warn{background:#fdecec;color:#8a1f1f}
+.bubble.bot.waiting_approval{background:#fff4d6;color:#6b4d00}
+.chatcard{align-self:stretch;border:1px solid #e5c76b;background:#fffbef;border-radius:12px;padding:10px 12px}
+.chatcard.approved{border-color:#b8e3c8;background:#f1faf4}
+.chatcard.rejected{border-color:#f0c2c2;background:#fdf3f3}
+.chatcardhead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.chatconn{font-size:11px;text-transform:uppercase;letter-spacing:1px;background:#dff4e7;color:#1a7e47;border-radius:6px;padding:2px 7px}
+.chatmeta{color:#708078;font-size:11px}
+.chatcard dl{margin:8px 0;display:grid;gap:4px}
+.chatcard dl div{display:grid;grid-template-columns:80px 1fr;gap:8px}
+.chatcard dt{color:#708078;font-size:12px}
+.chatcard dd{margin:0;font-size:13px;word-break:break-word}
+.chatactions{display:flex;gap:8px}
+.chatactions button{flex:1;border:0;border-radius:8px;padding:8px;background:#1f7a4a;color:#fff;font-weight:600;cursor:pointer}
+.chatactions button.danger{background:#fff;color:#b42323;border:1px solid #efb7b7}
+.chatactions button:disabled{opacity:.6}
+.chatdecided{margin:4px 0 0;font-size:12px;font-weight:600}
+.chatdecided.approved{color:#1a7e47}.chatdecided.rejected{color:#b42323}
+.chaterror{margin:0;padding:6px 14px;color:#b42323;font-size:12px;background:#fdecec}
+.chatinput{display:flex;gap:8px;padding:10px;border-top:1px solid #e3eae5}
+.chatinput input{flex:1;border:1px solid #d3ddd6;border-radius:8px;padding:9px 10px}
+.chatinput button{border:0;border-radius:8px;padding:0 14px;background:#101c16;color:#fff;font-weight:600}
+.chatinput button:disabled{opacity:.5}
