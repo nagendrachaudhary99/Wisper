@@ -61,8 +61,9 @@ path keeps every existing guarantee:
 Honest boundary: the companion's workspace check only fixes the command's
 working directory - it is not a sandbox. The companion itself runs as a
 Docker container with only the Wisper project folder mounted in, so an
-approved command can read and change files in that project folder and use
-the network, but it cannot see the user's other files, app data or logins.
+approved command can read and change files in that project folder -
+including credentials stored in project files such as .env.local - and use
+the network. Other host folders are not mounted into the container.
 The approval card says this in plain language, which is why the exact
 command is shown before anything executes.
 
