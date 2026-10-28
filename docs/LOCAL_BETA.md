@@ -1,3 +1,8 @@
+> Branch note: the terminal-control-only branch (feat/local-control) is
+> SUPERSEDED by feat/browser-control, which contains the same terminal
+> control plus current, accurate permission copy. Do not deploy
+> feat/local-control; its approval text predates the container-truth fixes.
+
 # Local Mac beta
 
 ## One command

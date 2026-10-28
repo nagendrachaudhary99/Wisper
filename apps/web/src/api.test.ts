@@ -65,3 +65,22 @@ describe("API row normalization", () => {
     expect(r.approvals[0]!.action.kind).toBe("browser.navigate");
   });
 });
+
+describe("shared permission notices", () => {
+  it("terminal approvals always carry the mounted-folder/secrets/network warning", async () => {
+    const { permissionNoticeFor, TERMINAL_PERMISSION_WARNING } = await import("./approval-details.js");
+    const n = permissionNoticeFor("local.run_command", { executable: "ls", args: ["-la"] });
+    expect(n.warnings).toEqual([TERMINAL_PERMISSION_WARNING]);
+    expect(TERMINAL_PERMISSION_WARNING).toContain(".env.local");
+    expect(TERMINAL_PERMISSION_WARNING).toContain("not mounted");
+  });
+  it("browser approvals warn on private URLs and state that page scripts run", async () => {
+    const { permissionNoticeFor, BROWSER_SESSION_NOTE, PRIVATE_URL_WARNING, UNTRUSTED_CONTENT_NOTE } = await import("./approval-details.js");
+    const priv = permissionNoticeFor("browser.navigate", { url: "http://192.168.1.10/admin" });
+    expect(priv.sessionNote).toBe(BROWSER_SESSION_NOTE);
+    expect(priv.warnings).toEqual([PRIVATE_URL_WARNING, UNTRUSTED_CONTENT_NOTE]);
+    expect(BROWSER_SESSION_NOTE).toContain("scripts do run");
+    const pub = permissionNoticeFor("browser.navigate", { url: "https://example.com" });
+    expect(pub.warnings).toEqual([UNTRUSTED_CONTENT_NOTE]);
+  });
+});

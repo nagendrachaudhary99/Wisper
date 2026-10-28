@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatClient, actionTitle, buildTimeline, looksLikeDecision, parameterRows, statusLine, type ChatApproval, type ChatFeed, type ChatNote } from "./chat.js";
+import { PermissionNotices } from "./approval-details.js";
 import "./chat.css";
 
 const newKey = () => `chat-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -98,6 +99,7 @@ function ApprovalCard({ approval, busy, onDecide }: { approval: ChatApproval; bu
     <div className="chatcardhead"><strong>{actionTitle(approval.kind)}</strong><span className="chatconn">{approval.connector}</span></div>
     <small className="chatmeta">{approval.kind} · ref {approval.ref}</small>
     <dl>{rows.map((r) => <div key={r.label}><dt>{r.label}</dt><dd>{r.value}</dd></div>)}</dl>
+    {approval.status === "pending" && <PermissionNotices kind={approval.kind} input={approval.parameters}/>}
     {approval.status === "pending"
       ? <div className="chatactions"><button disabled={busy} onClick={() => onDecide(true)}>Approve exact action</button><button disabled={busy} className="danger" onClick={() => onDecide(false)}>Deny</button></div>
       : <p className={`chatdecided ${approval.status}`}>{approval.status === "approved" ? "Approved" : "Denied"}{approval.decidedBy ? ` by ${approval.decidedBy}` : ""}{approval.decidedAt ? ` · ${new Date(approval.decidedAt).toLocaleTimeString()}` : ""}</p>}
