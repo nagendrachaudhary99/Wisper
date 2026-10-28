@@ -23,23 +23,38 @@ export type CalendarCreateEventInput = z.infer<typeof CalendarCreateEventInput>;
 export const CalendarDeleteEventInput = z.object({ eventId:z.string().min(1).max(1024) });
 export type CalendarDeleteEventInput = z.infer<typeof CalendarDeleteEventInput>;
 
+/**
+ * Terminal control through the local Mac companion. The companion re-checks
+ * every field against its own allowlist, classification and kill switch, so
+ * this schema only bounds shape, not safety.
+ */
+export const LocalRunCommandInput = z.object({
+  executable: z.string().min(1).max(100),
+  args: z.array(z.string().max(1000)).max(30).default([]),
+  cwd: z.string().max(500).optional(),
+  timeoutMs: z.number().int().min(100).max(30_000).default(10_000),
+});
+export type LocalRunCommandInput = z.infer<typeof LocalRunCommandInput>;
+
 export const ActionIntent = z.discriminatedUnion("kind", [
   // A gmail read needs no facts: every input field is optional, so a step that
   // omits input entirely is still valid and defaults to {maxResults: 10}.
   z.object({ kind: z.literal("gmail.read"), input: GmailReadInput.default({}) }),
   z.object({ kind: z.literal("calendar.create_event"), input: CalendarCreateEventInput }),
   z.object({ kind: z.literal("calendar.delete_event"), input: CalendarDeleteEventInput }),
+  z.object({ kind: z.literal("local.run_command"), input: LocalRunCommandInput }),
 ]);
 export type ActionIntent = z.infer<typeof ActionIntent>;
 export type ActionKind = ActionIntent["kind"];
 
-export const ACTION_KINDS: readonly ActionKind[] = ["gmail.read", "calendar.create_event", "calendar.delete_event"];
+export const ACTION_KINDS: readonly ActionKind[] = ["gmail.read", "calendar.create_event", "calendar.delete_event", "local.run_command"];
 
 /** Which provider owns execution for a kind. Single source of truth for routing. */
 export const PROVIDER_FOR_KIND: Record<ActionKind, string> = {
   "gmail.read": "gmail",
   "calendar.create_event": "calendar",
   "calendar.delete_event": "calendar",
+  "local.run_command": "companion",
 };
 
 /**

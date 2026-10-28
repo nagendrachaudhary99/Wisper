@@ -38,3 +38,11 @@ describe("evaluateAction", () => {
     expect(d.effect).toBe("deny");
   });
 });
+
+describe("local.run_command policy", () => {
+  it("always requires approval: terminal control is never read-only", () => {
+    const local = ActionIntent.parse({ kind: "local.run_command", input: { executable: "ls", args: ["-la"] } });
+    const d = evaluateAction(local, base);
+    expect(d.effect).toBe("require_approval");
+  });
+});

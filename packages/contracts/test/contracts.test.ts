@@ -94,3 +94,24 @@ describe("parsePlan", () => {
     ).toThrow("invalid plan");
   });
 });
+
+describe("local.run_command intent", () => {
+  it("parses with safe defaults and routes to the companion provider", () => {
+    const intent = ActionIntent.parse({ kind: "local.run_command", input: { executable: "ls" } });
+    expect(intent.kind).toBe("local.run_command");
+    if (intent.kind === "local.run_command") {
+      expect(intent.input.args).toEqual([]);
+      expect(intent.input.timeoutMs).toBe(10_000);
+    }
+    expect(PROVIDER_FOR_KIND[intent.kind]).toBe("companion");
+  });
+  it("produces a stable action hash across re-parse", () => {
+    const a = ActionIntent.parse({ kind: "local.run_command", input: { executable: "git", args: ["status"] } });
+    const b = ActionIntent.parse(JSON.parse(JSON.stringify(a)));
+    expect(actionHash(a)).toBe(actionHash(b));
+  });
+  it("rejects out-of-bounds timeouts and arg lists", () => {
+    expect(() => ActionIntent.parse({ kind: "local.run_command", input: { executable: "ls", timeoutMs: 60_000 } })).toThrow();
+    expect(() => ActionIntent.parse({ kind: "local.run_command", input: { executable: "ls", args: Array(31).fill("x") } })).toThrow();
+  });
+});
