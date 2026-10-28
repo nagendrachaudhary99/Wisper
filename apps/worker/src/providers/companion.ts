@@ -58,7 +58,7 @@ export class HttpCompanionProvider implements CompanionProvider {
   private async preview(input: LocalRunCommandInput, approvalToken?: string): Promise<unknown> {
     const res = await this.fetcher(`${this.options.baseUrl.replace(/\/$/, "")}/v1/commands/preview`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-wisper-companion-token": this.options.serviceToken },
       body: JSON.stringify({ ...input, ...(approvalToken ? { approvalToken } : {}) }),
       signal: AbortSignal.timeout(this.options.timeoutMs ?? 35_000),
     });

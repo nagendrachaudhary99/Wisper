@@ -58,6 +58,12 @@ path keeps every existing guarantee:
 4. The result (command, exit code, stdout, stderr) renders readably in the
    dashboard and lands in the run trace.
 
+Honest boundary: the companion's workspace check only fixes the command's
+working directory - it is not a sandbox. An approved command runs with the
+Mac user's normal permissions and can reach the same files and app data as
+programs the user runs. The approval card says this in plain language, which
+is why the exact command is shown before anything executes.
+
 Setup: add `WISPER_COMPANION_TOKEN=<random string>` to `.env.local` and
 restart with `./wisper local down && ./wisper local up`. Without the token
 the worker uses the fake companion and no command ever executes. Setting
