@@ -40,3 +40,13 @@ export function gmailEmptyMessageOf(result:unknown):string {
  const query=data&&typeof data==="object"&&(data as {query?:unknown}).query;
  return typeof query==="string"&&query.trim() ? `No emails matched '${query}'.` : "No unread messages returned.";
 }
+
+export interface LocalCommandView { preview: string; stdout: string; stderr: string; exitCode: number; }
+/** Command result when the result is a local.run_command payload; null for anything else. */
+export function localCommandOf(result: unknown): LocalCommandView | null {
+  const data = parseJsonResult(result);
+  if (!data || typeof data !== "object") return null;
+  const d = data as { preview?: unknown; stdout?: unknown; stderr?: unknown; exitCode?: unknown };
+  if (typeof d.exitCode !== "number" || typeof d.preview !== "string") return null;
+  return { preview: d.preview, stdout: typeof d.stdout === "string" ? d.stdout : "", stderr: typeof d.stderr === "string" ? d.stderr : "", exitCode: d.exitCode };
+}
