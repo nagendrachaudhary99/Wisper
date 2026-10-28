@@ -6,7 +6,7 @@ import {
 } from "@wisper/db";
 import { actionHash } from "@wisper/contracts";
 import { executeAction } from "../src/executor.js";
-import { FakeCalendarProvider, FakeCompanionProvider, FakeGmailProvider } from "../src/providers/fake.js";
+import { FakeBrowserProvider, FakeCalendarProvider, FakeCompanionProvider, FakeGmailProvider } from "../src/providers/fake.js";
 
 let db: Queryable;
 let tenantId: string;
@@ -30,7 +30,7 @@ describe("executeAction idempotency", () => {
   it("executes once and deduplicates a post-crash retry", async () => {
     const { run } = await createRunOnce(db, { tenantId, idempotencyKey: "k", kind: "chat", input: {} });
     const step = await upsertStep(db, { runId: run.id, ordinal: 0, kind: intent.kind, actionHash: actionHash(intent) });
-    const providers = { gmail: new FakeGmailProvider(), calendar: new FakeCalendarProvider(), companion: new FakeCompanionProvider() };
+    const providers = { gmail: new FakeGmailProvider(), calendar: new FakeCalendarProvider(), companion: new FakeCompanionProvider(), browser: new FakeBrowserProvider() };
     const args = { tenantId, runId: run.id, stepId: step.id, stepOrdinal: 0, intent };
 
     const first = await executeAction(db, providers, args);
@@ -50,7 +50,7 @@ describe("executeAction idempotency", () => {
     const step = await upsertStep(db, { runId: run.id, ordinal: 0, kind: intent.kind, actionHash: actionHash(intent) });
     const failing = new FakeCalendarProvider();
     failing.createEvent = async () => { throw new Error("boom"); };
-    const providers = { gmail: new FakeGmailProvider(), calendar: failing, companion: new FakeCompanionProvider() };
+    const providers = { gmail: new FakeGmailProvider(), calendar: failing, companion: new FakeCompanionProvider(), browser: new FakeBrowserProvider() };
 
     await expect(
       executeAction(db, providers, { tenantId, runId: run.id, stepId: step.id, stepOrdinal: 0, intent }),
@@ -66,7 +66,7 @@ describe("local.run_command execution", () => {
     const localIntent = ActionIntent.parse({ kind: "local.run_command", input: { executable: "ls", args: ["-la"] } });
     const { run } = await createRunOnce(db, { tenantId, idempotencyKey: "k-local", kind: "chat", input: {} });
     const step = await upsertStep(db, { runId: run.id, ordinal: 0, kind: localIntent.kind, actionHash: actionHash(localIntent) });
-    const providers = { gmail: new FakeGmailProvider(), calendar: new FakeCalendarProvider(), companion: new FakeCompanionProvider() };
+    const providers = { gmail: new FakeGmailProvider(), calendar: new FakeCalendarProvider(), companion: new FakeCompanionProvider(), browser: new FakeBrowserProvider() };
     const args = { tenantId, runId: run.id, stepId: step.id, stepOrdinal: 0, intent: localIntent };
 
     const first = await executeAction(db, providers, args);

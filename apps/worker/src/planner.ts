@@ -54,6 +54,19 @@ export class DeterministicPlanner implements ModelPlanner {
       }
     }
 
+    // Browser: only an explicit URL in the message becomes a navigation
+    // step - never guess or construct one. Fresh isolated context per call,
+    // read-only rendering, and still approval-gated by policy.
+    const urlMatch = text.match(/https?:\/\/[\w.-]+(?::\d+)?(?:\/[\w\-._~:/?#@!$&'()*+,;=%]*)?/);
+    const wantsPage = /\b(open|visit|read|check|look at|summarize|fetch|browse|tell me|show me)\b/.test(lower);
+    if (urlMatch && wantsPage) {
+      steps.push({
+        ordinal: steps.length,
+        intent: { kind: "browser.navigate", input: { url: urlMatch[0] } },
+        rationale: "User gave an explicit URL and asked to open/read it; navigation is read-only and approval-gated.",
+      });
+    }
+
     const calendarMatch = /\b(calendar|schedule|meeting|event|book)\b/.test(lower);
     if (calendarMatch && !deleteMatch) {
       const summary = extractSummary(text) ?? "New event";

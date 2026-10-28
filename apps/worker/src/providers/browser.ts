@@ -28,7 +28,7 @@ export class PlaywrightBrowserProvider implements BrowserProvider {
       if (!response) throw new Error("no response from page");
       if (response.status() >= 400) throw new Error(`page returned HTTP ${response.status()}`);
       const title = await page.title();
-      const text = (await page.evaluate(() => document.body?.innerText ?? "")).slice(0, MAX_TEXT);
+      const text = (await page.innerText("body")).slice(0, MAX_TEXT);
       return { url: page.url(), title, text };
     } finally {
       await context.close();
