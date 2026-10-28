@@ -39,3 +39,29 @@ describe("isPrivateHost", () => {
     }
   });
 });
+
+describe("API row normalization", () => {
+  it("parses jsonb-string fields on dashboard rows so cards render content", async () => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
+      recurring: [], counts: {},
+      runs: [{ id: "run_1", status: "waiting_approval", input: JSON.stringify({ text: "list the files" }), plan: JSON.stringify({ summary: "one step" }), error: null, created_at: "x" }],
+      approvals: [{ id: "appr_1", run_id: "run_1", step_id: "step_1", status: "pending", action: JSON.stringify({ kind: "local.run_command", input: { executable: "ls" } }), created_at: "x" }],
+      failures: [], audit: [{ id: 1, run_id: "run_1", actor: "worker", event_type: "run.planned", data: JSON.stringify({ steps: 1 }), created_at: "x" }],
+      steps: [{ id: "step_1", ordinal: 0, kind: "local.run_command", status: "awaiting_approval", result: JSON.stringify({ stdout: "f" }), error: null }],
+    }), { status: 200 })) as typeof fetch;
+    const d = await new ApiClient("t").dashboard();
+    expect(d.runs[0]!.input.text).toBe("list the files");
+    expect(d.runs[0]!.plan?.summary).toBe("one step");
+    expect(d.approvals[0]!.action.kind).toBe("local.run_command");
+    expect((d.approvals[0]!.action.input as { executable: string }).executable).toBe("ls");
+    expect((d.steps[0]!.result as { stdout: string }).stdout).toBe("f");
+    expect((d.audit[0]!.data as { steps: number }).steps).toBe(1);
+  });
+  it("parses pending approvals from the approvals endpoint", async () => {
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
+      approvals: [{ id: "appr_2", run_id: "r", step_id: "s", status: "pending", action: JSON.stringify({ kind: "browser.navigate", input: { url: "https://example.com" } }), created_at: "x" }],
+    }), { status: 200 })) as typeof fetch;
+    const r = await new ApiClient("t").pendingApprovals();
+    expect(r.approvals[0]!.action.kind).toBe("browser.navigate");
+  });
+});

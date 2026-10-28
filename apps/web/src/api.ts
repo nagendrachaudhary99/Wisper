@@ -11,15 +11,25 @@ export class ApiClient {
  constructor(private token:string){}
  private async call<T>(path:string,init?:RequestInit):Promise<T>{const res=await fetch(path,{...init,headers:{"content-type":"application/json",authorization:`Bearer ${this.token}`,...(init?.headers??{})}});if(!res.ok)throw new Error(`${res.status}: ${await res.text()}`);return await res.json() as T;}
  chat(text:string,idempotencyKey:string){return this.call<{runId:string;status:string;deduplicated:boolean}>("/v1/chat",{method:"POST",body:JSON.stringify({text,idempotencyKey})});}
- run(id:string){return this.call<RunDetail>(`/v1/runs/${id}`);}
- deleteRun(id:string){return this.call<{ok:boolean;cancelError:string|null}>(`/v1/runs/${id}`,{method:"DELETE"});} dashboard(){return this.call<Dashboard>("/v1/dashboard");}
+ async run(id:string){const d=await this.call<RunDetail>(`/v1/runs/${id}`);return {run:normalizeRun(d.run),steps:(d.steps??[]).map(normalizeStep),attempts:(d.attempts??[]).map(normalizeAttempt),approvals:(d.approvals??[]).map(normalizeApproval),audit:(d.audit??[]).map(normalizeAudit)};}
+ deleteRun(id:string){return this.call<{ok:boolean;cancelError:string|null}>(`/v1/runs/${id}`,{method:"DELETE"});}
+ async dashboard(){const d=await this.call<Dashboard>("/v1/dashboard");return {...d,runs:(d.runs??[]).map(normalizeRun),failures:(d.failures??[]).map(normalizeRun),approvals:(d.approvals??[]).map(normalizeApproval),steps:(d.steps??[]).map(normalizeStep),audit:(d.audit??[]).map(normalizeAudit)};}
  createRecurring(text:string,intervalMinutes:number){return this.call<{recurring:RecurringRun}>("/v1/recurring",{method:"POST",body:JSON.stringify({text,intervalMinutes})});}
  cancelRecurring(id:string){return this.call<{ok:boolean}>(`/v1/recurring/${id}`,{method:"DELETE"});}
  status(){return this.call<SystemStatus>("/v1/system/status");}
  googleAuthorizationUrl(){return this.call<{authorizationUrl:string}>("/v1/oauth/google/start");}
- pendingApprovals(){return this.call<{approvals:Approval[]}>("/v1/approvals?status=pending");}
+ async pendingApprovals(){const r=await this.call<{approvals:Approval[]}>("/v1/approvals?status=pending");return {approvals:(r.approvals??[]).map(normalizeApproval)};}
  decide(id:string,approved:boolean){return this.call<{ok:boolean;status:string}>(`/v1/approvals/${id}/decision`,{method:"POST",body:JSON.stringify({approved,decidedBy:"web-user"})});}
 }
+
+/** API rows carry jsonb fields as JSON strings (they are stored stringified);
+ *  parse them once at the client boundary so cards render real content. */
+function parseField<T>(v:unknown):T{ if(typeof v!=="string")return v as T; try{return JSON.parse(v) as T;}catch{return v as T;} }
+function normalizeRun(r:RunSummary):RunSummary{ if(!r)return r; return {...r,input:parseField(r.input),plan:r.plan?parseField(r.plan):r.plan}; }
+function normalizeStep(s:Step):Step{ return {...s,result:s.result==null?s.result:parseField(s.result)}; }
+function normalizeAttempt(a:Attempt):Attempt{ return {...a,request:parseField(a.request),response:a.response==null?a.response:parseField(a.response)}; }
+function normalizeApproval(a:Approval):Approval{ return {...a,action:parseField(a.action)}; }
+function normalizeAudit(e:AuditEvent):AuditEvent{ return {...e,data:parseField(e.data)}; }
 
 export interface GmailMessageView { messageId?:string; from?:string; subject?:string; snippet?:string; receivedAt?:string; }
 /** Step results arrive from the API as JSON strings; parse when possible, else keep the raw text. */

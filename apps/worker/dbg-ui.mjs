@@ -1,0 +1,12 @@
+import { chromium } from "playwright-core";
+const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
+const page = await (await browser.newContext()).newPage();
+page.on("console", m => { if (m.type() === "error") console.log("[console.error]", m.text().slice(0,200)); });
+page.on("pageerror", e => console.log("[pageerror]", String(e).slice(0,300)));
+page.on("response", r => { if (r.url().includes("/v1/")) console.log("[api]", r.status(), r.url().replace("http://[::1]:5173","")); });
+await page.goto("http://[::1]:5173/?token=wsp_tok_1c5f4639505f4c4f8272bb8e5df2d4db", { waitUntil: "networkidle" });
+await page.waitForTimeout(6000);
+const text = await page.evaluate(() => document.body.innerText);
+console.log("---PAGE TEXT---");
+console.log(text.slice(0, 1500));
+await browser.close();
