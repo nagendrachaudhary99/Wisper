@@ -6,7 +6,7 @@ import {
 } from "@wisper/db";
 import { actionHash } from "@wisper/contracts";
 import { executeAction } from "../src/executor.js";
-import { FakeCalendarProvider, FakeGmailProvider } from "../src/providers/fake.js";
+import { FakeCalendarProvider, FakeCompanionProvider, FakeGmailProvider } from "../src/providers/fake.js";
 
 let db: Queryable;
 let tenantId: string;
@@ -30,7 +30,7 @@ describe("executeAction idempotency", () => {
   it("executes once and deduplicates a post-crash retry", async () => {
     const { run } = await createRunOnce(db, { tenantId, idempotencyKey: "k", kind: "chat", input: {} });
     const step = await upsertStep(db, { runId: run.id, ordinal: 0, kind: intent.kind, actionHash: actionHash(intent) });
-    const providers = { gmail: new FakeGmailProvider(), calendar: new FakeCalendarProvider() };
+    const providers = { gmail: new FakeGmailProvider(), calendar: new FakeCalendarProvider(), companion: new FakeCompanionProvider() };
     const args = { tenantId, runId: run.id, stepId: step.id, stepOrdinal: 0, intent };
 
     const first = await executeAction(db, providers, args);
@@ -50,7 +50,7 @@ describe("executeAction idempotency", () => {
     const step = await upsertStep(db, { runId: run.id, ordinal: 0, kind: intent.kind, actionHash: actionHash(intent) });
     const failing = new FakeCalendarProvider();
     failing.createEvent = async () => { throw new Error("boom"); };
-    const providers = { gmail: new FakeGmailProvider(), calendar: failing };
+    const providers = { gmail: new FakeGmailProvider(), calendar: failing, companion: new FakeCompanionProvider() };
 
     await expect(
       executeAction(db, providers, { tenantId, runId: run.id, stepId: step.id, stepOrdinal: 0, intent }),
@@ -58,5 +58,25 @@ describe("executeAction idempotency", () => {
 
     const events = await listAuditForRun(db, tenantId, run.id);
     expect(events.map((e) => e.event_type)).toContain("execution.failed");
+  });
+});
+
+describe("local.run_command execution", () => {
+  it("routes to the companion provider and deduplicates retries", async () => {
+    const localIntent = ActionIntent.parse({ kind: "local.run_command", input: { executable: "ls", args: ["-la"] } });
+    const { run } = await createRunOnce(db, { tenantId, idempotencyKey: "k-local", kind: "chat", input: {} });
+    const step = await upsertStep(db, { runId: run.id, ordinal: 0, kind: localIntent.kind, actionHash: actionHash(localIntent) });
+    const providers = { gmail: new FakeGmailProvider(), calendar: new FakeCalendarProvider(), companion: new FakeCompanionProvider() };
+    const args = { tenantId, runId: run.id, stepId: step.id, stepOrdinal: 0, intent: localIntent };
+
+    const first = await executeAction(db, providers, args);
+    expect(first.skippedDuplicate).toBe(false);
+    expect(providers.companion.calls).toBe(1);
+    expect(providers.companion.ran[0]).toMatchObject({ executable: "ls", args: ["-la"] });
+    expect(first.response).toMatchObject({ status: "completed", exitCode: 0 });
+
+    const retry = await executeAction(db, providers, args);
+    expect(retry.skippedDuplicate).toBe(true);
+    expect(providers.companion.calls).toBe(1);
   });
 });

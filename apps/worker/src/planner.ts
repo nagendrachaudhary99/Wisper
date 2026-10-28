@@ -27,6 +27,33 @@ export class DeterministicPlanner implements ModelPlanner {
     const deleteMatch=text.match(/(?:delete|remove|cancel).*?(?:event\s+)?((?:[a-zA-Z0-9_-]{6,}))/i);
     if(deleteMatch?.[1])steps.push({ordinal:steps.length,intent:{kind:"calendar.delete_event",input:{eventId:deleteMatch[1]}},rationale:"Exact event id supplied for approval-gated cleanup."});
 
+    // Terminal control: only explicit, read-only requests are planned
+    // deterministically. Anything ambiguous falls through to zero steps -
+    // never guess a command.
+    const listFiles = /\b(?:list|show|what)(?:\s+me)?\s+(?:the\s+)?files\b/.test(lower) || /\bls\b/.test(lower);
+    const backtickCmd = text.match(/`([a-z0-9_./ -]{1,120})`/i);
+    const readOnlyAllowlist = new Set(["pwd", "ls", "git", "node", "pnpm"]);
+    const readOnlyGit = /^(status|log|diff|branch|show|remote|rev-parse)$/;
+    if (listFiles) {
+      steps.push({
+        ordinal: steps.length,
+        intent: { kind: "local.run_command", input: { executable: "ls", args: ["-la"], timeoutMs: 10_000 } },
+        rationale: "User asked to list files; ls is read-only and still approval-gated before it runs.",
+      });
+    } else if (backtickCmd?.[1]) {
+      const parts = backtickCmd[1].trim().split(/\s+/).filter(Boolean);
+      const exe = parts[0] ?? "";
+      const args = parts.slice(1);
+      const readOnly = exe === "git" ? readOnlyGit.test(args[0] ?? "") : readOnlyAllowlist.has(exe) && args.every((a) => !a.startsWith("-") || exe === "ls");
+      if (readOnlyAllowlist.has(exe) && readOnly) {
+        steps.push({
+          ordinal: steps.length,
+          intent: { kind: "local.run_command", input: { executable: exe, args, timeoutMs: 10_000 } },
+          rationale: "User supplied an exact read-only command in backticks; still approval-gated before it runs.",
+        });
+      }
+    }
+
     const calendarMatch = /\b(calendar|schedule|meeting|event|book)\b/.test(lower);
     if (calendarMatch && !deleteMatch) {
       const summary = extractSummary(text) ?? "New event";

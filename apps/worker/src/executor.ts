@@ -4,6 +4,7 @@ import {
   idempotencyKeyFor,
   type ActionIntent,
   type CalendarProvider,
+  type CompanionProvider,
   type GmailProvider,
 } from "@wisper/contracts";
 import {
@@ -17,6 +18,7 @@ import {
 export interface Providers {
   gmail: GmailProvider;
   calendar: CalendarProvider;
+  companion: CompanionProvider;
 }
 
 export interface ExecuteArgs {
@@ -104,5 +106,7 @@ async function callProvider(providers: Providers, intent: ActionIntent): Promise
       return providers.calendar.createEvent(intent.input);
     case "calendar.delete_event":
       return providers.calendar.deleteEvent(intent.input);
+    case "local.run_command":
+      return providers.companion.runCommand(intent.input);
   }
 }

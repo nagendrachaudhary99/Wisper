@@ -2,9 +2,12 @@ import type {
   CalendarCreateEventInput,
   CalendarEventResult,
   CalendarProvider,
+  CompanionCommandResult,
+  CompanionProvider,
   GmailMessageSummary,
   GmailProvider,
   GmailReadInput,
+  LocalRunCommandInput,
 } from "@wisper/contracts";
 
 /**
@@ -36,5 +39,22 @@ export class FakeCalendarProvider implements CalendarProvider {
     this.created.push(input);
     const eventId = `fake_evt_${this.created.length}`;
     return { eventId, htmlLink: `https://calendar.local/fake/${eventId}` };
+  }
+}
+
+export class FakeCompanionProvider implements CompanionProvider {
+  calls = 0;
+  ran: LocalRunCommandInput[] = [];
+  async runCommand(input: LocalRunCommandInput): Promise<CompanionCommandResult> {
+    this.calls += 1;
+    this.ran.push(input);
+    return {
+      status: "completed",
+      preview: [input.executable, ...input.args].join(" "),
+      approvalClass: "explicit",
+      stdout: `fake output for ${input.executable}`,
+      stderr: "",
+      exitCode: 0,
+    };
   }
 }

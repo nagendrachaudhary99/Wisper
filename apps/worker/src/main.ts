@@ -3,7 +3,8 @@ import { PgQueryable } from "@wisper/db";
 import type { TenantGrant } from "@wisper/policy";
 import { DeterministicPlanner } from "./planner.js";
 import { createActivities } from "./activities.js";
-import { FakeCalendarProvider, FakeGmailProvider } from "./providers/fake.js";
+import { FakeCalendarProvider, FakeCompanionProvider, FakeGmailProvider } from "./providers/fake.js";
+import { HttpCompanionProvider } from "./providers/companion.js";
 import { GoogleCalendarProvider, GoogleGmailProvider } from "./providers/google.js";
 import { TenantGoogleTokenSource } from "./providers/google-token.js";
 import { HttpModelPlanner } from "./model-planner.js";
@@ -23,12 +24,19 @@ async function main(): Promise<void> {
   const db = new PgQueryable(databaseUrl);
   const tenantId = process.env.WISPER_TENANT_ID;
   const liveGoogle = resolveProviderMode(process.env) === "google";
-  let providers = { gmail: new FakeGmailProvider() as import("@wisper/contracts").GmailProvider, calendar: new FakeCalendarProvider() as import("@wisper/contracts").CalendarProvider };
+  let google = { gmail: new FakeGmailProvider() as import("@wisper/contracts").GmailProvider, calendar: new FakeCalendarProvider() as import("@wisper/contracts").CalendarProvider };
   if (liveGoogle) {
     if (!tenantId || !process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.OAUTH_ENCRYPTION_KEY) throw new Error("Google mode requires WISPER_TENANT_ID, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and OAUTH_ENCRYPTION_KEY");
     const tokens = new TenantGoogleTokenSource(db, tenantId, { clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET, encryptionKey: process.env.OAUTH_ENCRYPTION_KEY });
-    providers = { gmail: new GoogleGmailProvider({ tokenSource: tokens }), calendar: new GoogleCalendarProvider({ tokenSource: tokens }) };
+    google = { gmail: new GoogleGmailProvider({ tokenSource: tokens }), calendar: new GoogleCalendarProvider({ tokenSource: tokens }) };
   }
+  // Terminal control runs on the local companion. With no companion URL or
+  // shared token configured the worker uses the fake, so local.run_command
+  // stays side-effect-free until the Mac companion is reachable and trusted.
+  const companion = process.env.WISPER_COMPANION_URL && process.env.WISPER_COMPANION_TOKEN
+    ? new HttpCompanionProvider({ baseUrl: process.env.WISPER_COMPANION_URL, serviceToken: process.env.WISPER_COMPANION_TOKEN })
+    : new FakeCompanionProvider();
+  const providers = { ...google, companion };
   const planner = process.env.MODEL_API_KEY ? new HttpModelPlanner({ endpoint: process.env.MODEL_ENDPOINT ?? "https://api.openai.com/v1", apiKey: process.env.MODEL_API_KEY, model: process.env.MODEL_NAME ?? "gpt-4o-mini" }) : new DeterministicPlanner();
   const activities = createActivities({
     db,

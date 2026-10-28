@@ -236,7 +236,7 @@ describe("planner request contract", () => {
     expect(req.body.model).toBe("test-model");
     expect(req.body.response_format?.type).toBe("json_object");
     const system = req.body.messages.find((m) => m.role === "system")?.content ?? "";
-    expect(system).toContain("Allowed kinds: gmail.read, calendar.create_event, and calendar.delete_event");
+    expect(system).toContain("Allowed kinds: gmail.read, calendar.create_event, calendar.delete_event, and local.run_command.");
     expect(system).toContain("find any interview update in my email");
     expect(system).toContain("query is Gmail search syntax");
     expect(system).toContain("never emit zero steps when the user asks to read, show, find, search, or list email");
@@ -259,5 +259,37 @@ describe("deterministic planner", () => {
   it("keeps a plain email read at the 10 unread default", async () => {
     const plan = await new DeterministicPlanner().plan("show my email");
     expect(plan.steps[0]?.intent).toEqual({ kind: "gmail.read", input: { maxResults: 10 } });
+  });
+});
+
+describe("local.run_command planning", () => {
+  it("passes a model-planned command through unchanged", async () => {
+    const planner = plannerWithModel(JSON.stringify({
+      summary: "List files in the workspace.",
+      steps: [{ ordinal: 0, intent: { kind: "local.run_command", input: { executable: "ls", args: ["-la"] } }, rationale: "User asked to list files." }],
+    }));
+    const plan = await planner.plan("list the files on my computer");
+    expect(plan.steps[0]?.intent).toEqual({ kind: "local.run_command", input: { executable: "ls", args: ["-la"], timeoutMs: 10_000 } });
+  });
+  it("system prompt constrains commands to the allowlist and approval", async () => {
+    const captured: CapturedRequest[] = [];
+    const planner = plannerWithModel(JSON.stringify({ summary: "noop", steps: [] }), { captured });
+    await planner.plan("anything");
+    const system = captured[0]!.body.messages.find((m) => m.role === "system")?.content ?? "";
+    expect(system).toContain("local.run_command");
+    expect(system).toContain("pwd, ls, git, node, pnpm");
+    expect(system).toContain("explicit approval");
+  });
+  it("deterministic planner lists files when asked", async () => {
+    const plan = await new DeterministicPlanner().plan("list the files in my folder");
+    expect(plan.steps[0]?.intent).toEqual({ kind: "local.run_command", input: { executable: "ls", args: ["-la"], timeoutMs: 10_000 } });
+  });
+  it("deterministic planner runs an exact read-only backticked command", async () => {
+    const plan = await new DeterministicPlanner().plan("on my mac run `git status` please");
+    expect(plan.steps[0]?.intent).toEqual({ kind: "local.run_command", input: { executable: "git", args: ["status"], timeoutMs: 10_000 } });
+  });
+  it("deterministic planner never plans a destructive command", async () => {
+    const plan = await new DeterministicPlanner().plan("on my mac run `git push --force` please");
+    expect(plan.steps.filter((s) => s.intent.kind === "local.run_command")).toEqual([]);
   });
 });

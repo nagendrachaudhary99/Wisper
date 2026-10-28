@@ -6,10 +6,11 @@ export interface ModelPlannerAdapterOptions { endpoint: string; apiKey: string; 
 function systemPrompt(today: string): string {
   return [
     "Return only JSON matching {summary,steps:[{ordinal,intent:{kind,input},rationale}]}.",
-    "Allowed kinds: gmail.read, calendar.create_event, and calendar.delete_event.",
+    "Allowed kinds: gmail.read, calendar.create_event, calendar.delete_event, and local.run_command.",
     "Input schemas:",
     "- gmail.read: {maxResults?: integer 1-50 (default 10), query?: string}. Default is the latest 10 unread messages when there is no query. When the user asks to find/search mail about a topic (for example, find any interview update in my email), supply a query containing the topic (e.g. interview), not an empty input. query is Gmail search syntax: use terms or quoted phrases, and operators such as from: and newer_than: when requested. A query replaces the unread default, so include is:unread only when the user asks for unread. A gmail read needs no other facts: never decline a gmail read for missing facts, never emit zero steps when the user asks to read, show, find, search, or list email, and input may be omitted entirely when there is nothing to filter by.",
     "- calendar.delete_event: {eventId: string}. Use only when the user supplies the exact event id and asks to delete/cancel it.",
+    "- local.run_command: {executable: string, args?: string[], cwd?: string, timeoutMs?: integer}. Runs a terminal command on the user's own computer through the local companion. Use only when the user asks to run a command, inspect files, or check something on their machine. Only these executables are allowlisted: pwd, ls, git, node, pnpm. Prefer read-only usage (for example ls, git status, git log); never plan destructive flags (rm, mv, chmod, chown, sudo, git push, git commit, git reset, git clean); the companion blocks or escalates them anyway. Every command is shown to the user for explicit approval before it runs.",
     "- calendar.create_event: {summary: string, start: ISO 8601 datetime with offset, end: ISO 8601 datetime with offset, location?: string, attendees?: string[], description?: string}.",
     `Today's date is ${today}; resolve relative dates (today, tomorrow, next Friday) against it.`,
     "Never invent missing dates or recipients; emit zero steps only when a calendar.create_event is requested and required facts (summary, start, end) cannot be determined.",

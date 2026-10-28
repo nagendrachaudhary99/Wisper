@@ -41,3 +41,45 @@ describe("model planner adapter", () => {
     await expect(new HttpModelPlanner({ endpoint: "https://model.test/v1", apiKey: "x", model: "m", fetch: fetcher as typeof fetch }).plan("send")).rejects.toThrow();
   });
 });
+
+describe("HttpCompanionProvider", () => {
+  it("returns immediately when the companion executes an auto_read command", async () => {
+    const { HttpCompanionProvider } = await import("../src/providers/companion.js");
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ status: "completed", preview: "ls -la", approvalClass: "auto_read", stdout: "file.txt", stderr: "", exitCode: 0 }), { status: 200 }));
+    const provider = new HttpCompanionProvider({ baseUrl: "http://companion:7337", serviceToken: "s", fetch: fetcher as unknown as typeof fetch });
+    const result = await provider.runCommand({ executable: "ls", args: ["-la"], timeoutMs: 1000 });
+    expect(result).toMatchObject({ status: "completed", exitCode: 0, stdout: "file.txt" });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it("mints a single-use approval for explicit commands and retries with it", async () => {
+    const { HttpCompanionProvider } = await import("../src/providers/companion.js");
+    const calls: Array<{ url: string; body: string; headers: unknown }> = [];
+    const fetcher = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      const url = String(input);
+      calls.push({ url, body: String(init?.body), headers: init?.headers });
+      if (url.endsWith("/v1/approvals")) return new Response(JSON.stringify({ token: "tok-1" }), { status: 200 });
+      if (calls.filter((c) => c.url.endsWith("/v1/commands/preview")).length === 1)
+        return new Response(JSON.stringify({ id: "c1", status: "awaiting_approval", preview: "echo hi", digest: "d-1", approvalClass: "explicit" }), { status: 200 });
+      return new Response(JSON.stringify({ status: "completed", preview: "echo hi", approvalClass: "explicit", stdout: "hi", stderr: "", exitCode: 0 }), { status: 200 });
+    });
+    const provider = new HttpCompanionProvider({ baseUrl: "http://companion:7337/", serviceToken: "s3cret", fetch: fetcher as unknown as typeof fetch });
+    const result = await provider.runCommand({ executable: "echo", args: ["hi"], timeoutMs: 1000 });
+    expect(result).toMatchObject({ status: "completed", stdout: "hi" });
+    expect(calls).toHaveLength(3);
+    const mint = calls.find((c) => c.url.endsWith("/v1/approvals"))!;
+    expect(mint.url).toBe("http://companion:7337/v1/approvals");
+    expect(JSON.parse(mint.body)).toEqual({ digest: "d-1" });
+    expect((mint.headers as Record<string, string>)["x-wisper-companion-token"]).toBe("s3cret");
+    const retry = calls.filter((c) => c.url.endsWith("/v1/commands/preview"))[1]!;
+    expect(JSON.parse(retry.body).approvalToken).toBe("tok-1");
+  });
+  it("fails when the mint is rejected, without executing the command", async () => {
+    const { HttpCompanionProvider } = await import("../src/providers/companion.js");
+    const fetcher = vi.fn(async (input: string | URL) => String(input).endsWith("/v1/approvals")
+      ? new Response(JSON.stringify({ error: "approval minting disabled or bad token" }), { status: 403 })
+      : new Response(JSON.stringify({ id: "c1", status: "awaiting_approval", preview: "echo hi", digest: "d-1", approvalClass: "explicit" }), { status: 200 }));
+    const provider = new HttpCompanionProvider({ baseUrl: "http://companion:7337", serviceToken: "bad", fetch: fetcher as unknown as typeof fetch });
+    await expect(provider.runCommand({ executable: "echo", args: ["hi"], timeoutMs: 1000 })).rejects.toThrow("mint 403");
+    expect(fetcher).toHaveBeenCalledTimes(2); // preview + rejected mint, never a retry
+  });
+});
