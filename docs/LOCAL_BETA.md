@@ -59,12 +59,37 @@ path keeps every existing guarantee:
    dashboard and lands in the run trace.
 
 Honest boundary: the companion's workspace check only fixes the command's
-working directory - it is not a sandbox. An approved command runs with the
-Mac user's normal permissions and can reach the same files and app data as
-programs the user runs. The approval card says this in plain language, which
-is why the exact command is shown before anything executes.
+working directory - it is not a sandbox. The companion itself runs as a
+Docker container with only the Wisper project folder mounted in, so an
+approved command can read and change files in that project folder and use
+the network, but it cannot see the user's other files, app data or logins.
+The approval card says this in plain language, which is why the exact
+command is shown before anything executes.
 
 Setup: add `WISPER_COMPANION_TOKEN=<random string>` to `.env.local` and
 restart with `./wisper local down && ./wisper local up`. Without the token
 the worker uses the fake companion and no command ever executes. Setting
 `WISPER_COMPANION_DISABLED=1` in `.env.local` remains the kill switch.
+
+## Browser control (experimental)
+
+`browser.navigate` opens one page in a fresh headless Chromium inside the
+worker container - never the user's own browser profile; cookies and logins
+do not carry over. It is approval-gated and http/https-only. The page's own
+scripts DO run and can load resources; Wisper never clicks, types or
+submits, and the returned text is treated as untrusted content (shown to the
+user, never turned into actions).
+
+Network policy is enforced at request resolution time: every request the
+page makes - the document, each redirect hop and every subresource - is
+scheme-checked and host-classified, with hostnames DNS-resolved before the
+request is allowed. If the approved URL is public, any private/local target
+is aborted. If the approved URL is private (the card warns about this), only
+that exact host is reachable. A public hostname that resolves to a private
+address is refused outright, since the approval warning keys off the URL the
+user saw. Residual gap: DNS answers can change between the check and the
+connection (TOCTOU); this is a known limit, not a claim of immunity.
+
+Setup: the worker image installs headless Chromium during build; no extra
+configuration is needed. The fake browser provider stays the default when
+`WISPER_BROWSER_PROVIDER` is unset.

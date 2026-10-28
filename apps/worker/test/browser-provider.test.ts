@@ -62,3 +62,67 @@ describe("PlaywrightBrowserProvider (real Chromium)", () => {
     }
   });
 });
+
+describe("PlaywrightBrowserProvider network boundary", () => {
+  let serverB: Server;
+  let bSawRequest = false;
+  let urlB: string;
+
+  beforeAll(async () => {
+    serverB = createServer((req, res) => { bSawRequest = true; res.end("pixel"); });
+    await new Promise<void>((r) => serverB.listen(0, "127.0.0.1", r));
+    const addr = serverB.address();
+    urlB = `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}/`;
+  });
+
+  afterAll(async () => { await new Promise((r) => serverB.close(r)); });
+
+  it("aborts subresource requests to a different private host than the approved one", async () => {
+    // Approved page on localhost pulls an image from 127.0.0.1: both are
+    // private, but the approval was for localhost only.
+    const pageUrl = url.replace("127.0.0.1", "localhost");
+    const provider = new PlaywrightBrowserProvider();
+    const { createServer: cs } = await import("node:http");
+    const s = cs((req, res) => {
+      res.setHeader("content-type", "text/html");
+      res.end(`<html><head><title>t</title></head><body>ok<img src="${urlB}pixel.png"></body></html>`);
+    });
+    await new Promise<void>((r) => s.listen(0, "127.0.0.1", r));
+    const a = s.address();
+    const u = `http://localhost:${typeof a === "object" && a ? a.port : 0}/`;
+    try {
+      bSawRequest = false;
+      const page = await provider.navigate({ url: u });
+      expect(page.text).toContain("ok");
+      expect(bSawRequest).toBe(false);
+    } finally {
+      await provider.close();
+      await new Promise((r) => s.close(r));
+    }
+  }, 60_000);
+
+  it("blocks a redirect from the approved host to a different private host", async () => {
+    const { createServer: cs } = await import("node:http");
+    const s = cs((req, res) => { res.writeHead(302, { location: `${urlB}landing` }); res.end(); });
+    await new Promise<void>((r) => s.listen(0, "127.0.0.1", r));
+    const a = s.address();
+    const u = `http://localhost:${typeof a === "object" && a ? a.port : 0}/`;
+    const provider = new PlaywrightBrowserProvider();
+    try {
+      await expect(provider.navigate({ url: u })).rejects.toThrow(/private or local network/);
+    } finally {
+      await provider.close();
+      await new Promise((r) => s.close(r));
+    }
+  }, 60_000);
+
+  it("allows same-host subresources on an approved private page", async () => {
+    const provider = new PlaywrightBrowserProvider();
+    try {
+      const page = await provider.navigate({ url });
+      expect(page.title).toBe("Wisper Test Page");
+    } finally {
+      await provider.close();
+    }
+  }, 60_000);
+});
