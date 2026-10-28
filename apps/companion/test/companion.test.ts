@@ -17,3 +17,51 @@ describe("file, app and browser boundaries", () => {
     expect(classifyLocalOperation({ kind: "browser.navigate", target: "https://example.com", details: {} })).toBe("explicit");
   });
 });
+
+describe("approval store and service token", () => {
+  it("mints single-use tokens bound to the exact command digest", async () => {
+    const { createApprovalStore, commandDigest } = await import("../src/index.js");
+    const store = createApprovalStore();
+    const digest = commandDigest({ executable: "echo", args: ["hi"], timeoutMs: 1000 });
+    const token = store.mint(digest);
+    expect(store.pending()).toBe(1);
+    expect(store.consume(token, digest)).toBe(true);
+    expect(store.consume(token, digest)).toBe(false);
+    expect(store.pending()).toBe(0);
+  });
+  it("refuses a token minted for a different command", async () => {
+    const { createApprovalStore } = await import("../src/index.js");
+    const store = createApprovalStore();
+    const token = store.mint("digest-a");
+    expect(store.consume(token, "digest-b")).toBe(false);
+    expect(store.consume(token, "digest-a")).toBe(true);
+  });
+  it("checks the service token in constant time and fails closed when unset", async () => {
+    const { serviceTokenOk } = await import("../src/index.js");
+    expect(serviceTokenOk("secret", "secret")).toBe(true);
+    expect(serviceTokenOk("wrong", "secret")).toBe(false);
+    expect(serviceTokenOk("secret", "")).toBe(false);
+    expect(serviceTokenOk(undefined, "secret")).toBe(false);
+    expect(serviceTokenOk("secre", "secret")).toBe(false);
+  });
+  it("executes an explicit-class command after its minted approval is consumed", async () => {
+    const { createApprovalStore, commandDigest } = await import("../src/index.js");
+    const f = await fixture();
+    const store = createApprovalStore();
+    const request = { executable: "echo", args: ["approved"], timeoutMs: 1000 };
+    const digest = commandDigest({ ...request, cwd: "." });
+    const token = store.mint(digest);
+    const result = await executeCommand(
+      { ...f.config, consumeApproval: async (t, d) => store.consume(t, d) },
+      { ...request, approvalToken: token },
+    );
+    expect(result).toMatchObject({ status: "completed", exitCode: 0 });
+    expect((result as { stdout: string }).stdout.trim()).toBe("approved");
+    // A second run with the same token must not execute.
+    const again = await executeCommand(
+      { ...f.config, consumeApproval: async (t, d) => store.consume(t, d) },
+      { ...request, approvalToken: token },
+    );
+    expect(again.status).toBe("awaiting_approval");
+  });
+});

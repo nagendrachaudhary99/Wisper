@@ -1,6 +1,6 @@
 import { appendFile, realpath, stat } from "node:fs/promises";
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { resolve, relative } from "node:path";
 import { z } from "zod";
 
@@ -56,4 +56,32 @@ export const AppOperation = z.object({ kind: z.enum(["app.open", "app.click", "b
 export function classifyLocalOperation(operation: z.infer<typeof FileOperation> | z.infer<typeof AppOperation>): ApprovalClass {
   if (operation.kind === "file.read") return "auto_read";
   return "explicit";
+}
+
+/**
+ * Single-use execution approvals for explicit-class commands. The engine
+ * mints one only after its own user-facing approval gate has passed, and the
+ * minted token is bound to the exact command digest, so a token for one
+ * command can never approve a different one.
+ */
+export interface ApprovalStore {
+  mint(digest: string): string;
+  /** True at most once per token, and only for the digest it was minted for. */
+  consume(token: string, digest: string): boolean;
+  pending(): number;
+}
+export function createApprovalStore(): ApprovalStore {
+  const approvals = new Map<string, string>();
+  return {
+    mint(digest) { const token = randomUUID(); approvals.set(token, digest); return token; },
+    consume(token, digest) { const ok = approvals.get(token) === digest; if (ok) approvals.delete(token); return ok; },
+    pending() { return approvals.size; },
+  };
+}
+
+/** Constant-time check of the shared local secret that guards approval minting. Empty configured token disables minting entirely. */
+export function serviceTokenOk(header: unknown, serviceToken: string): boolean {
+  if (!serviceToken || typeof header !== "string") return false;
+  const a = Buffer.from(header), b = Buffer.from(serviceToken);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
