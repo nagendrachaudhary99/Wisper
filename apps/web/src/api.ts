@@ -50,3 +50,21 @@ export function localCommandOf(result: unknown): LocalCommandView | null {
   if (typeof d.exitCode !== "number" || typeof d.preview !== "string") return null;
   return { preview: d.preview, stdout: typeof d.stdout === "string" ? d.stdout : "", stderr: typeof d.stderr === "string" ? d.stderr : "", exitCode: d.exitCode };
 }
+
+/** Duplicate of @wisper/contracts isPrivateHost (web intentionally carries no
+ *  contracts dependency; keep in sync). True for loopback/RFC1918/link-local
+ *  or name-only hosts - the approval card warns on these. */
+export function isPrivateHost(url: string): boolean {
+  try {
+    const h = new URL(url).hostname.toLowerCase();
+    if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return true;
+    if (h === "[::1]" || h === "::1") return true;
+    if (!h.includes(".")) return true;
+    const m = h.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+    if (!m) return false;
+    const [a, b] = [Number(m[1]), Number(m[2])];
+    return a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254) || a === 0;
+  } catch {
+    return true;
+  }
+}

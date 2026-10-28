@@ -38,9 +38,30 @@ export type LocalRunCommandInput = z.infer<typeof LocalRunCommandInput>;
 
 /** Read-only browser navigation through the isolated browser pod. */
 export const BrowserNavigateInput = z.object({
-  url: z.string().url().max(2000),
+  // http/https only: file://, javascript:, data: and chrome: URLs can read
+  // local files or run script in the page, so they never reach the browser.
+  url: z.string().url().max(2000).refine((u) => /^https?:\/\//i.test(u), { message: "only http and https URLs can be opened" }),
 });
 export type BrowserNavigateInput = z.infer<typeof BrowserNavigateInput>;
+
+/** True when a URL targets a loopback, private, link-local or name-only host.
+ *  Navigation there is allowed (the whole point is controlling his own
+ *  machine) but the approval card warns, since a model-chosen private URL
+ *  could reach internal services. */
+export function isPrivateHost(url: string): boolean {
+  try {
+    const h = new URL(url).hostname.toLowerCase();
+    if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h.endsWith(".internal")) return true;
+    if (h === "[::1]" || h === "::1") return true;
+    if (!h.includes(".")) return true; // bare hostnames are internal by definition
+    const m = h.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+    if (!m) return false;
+    const [a, b] = [Number(m[1]), Number(m[2])];
+    return a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254) || a === 0;
+  } catch {
+    return true; // unparseable host: treat as private, fail safe on the warning side
+  }
+}
 
 export const ActionIntent = z.discriminatedUnion("kind", [
   // A gmail read needs no facts: every input field is optional, so a step that

@@ -115,3 +115,28 @@ describe("local.run_command intent", () => {
     expect(() => ActionIntent.parse({ kind: "local.run_command", input: { executable: "ls", args: Array(31).fill("x") } })).toThrow();
   });
 });
+
+describe("browser.navigate intent", () => {
+  it("accepts http and https URLs", async () => {
+    const { ActionIntent } = await import("../src/action.js");
+    expect(ActionIntent.parse({ kind: "browser.navigate", input: { url: "https://example.com/x" } }).kind).toBe("browser.navigate");
+    expect(ActionIntent.parse({ kind: "browser.navigate", input: { url: "http://localhost:4000/health" } }).kind).toBe("browser.navigate");
+  });
+
+  it("rejects file, javascript, data and other non-http schemes", async () => {
+    const { ActionIntent } = await import("../src/action.js");
+    for (const url of ["file:///etc/passwd", "javascript:alert(1)", "data:text/html,<script>1</script>", "ftp://example.com", "chrome://settings"]) {
+      expect(() => ActionIntent.parse({ kind: "browser.navigate", input: { url } })).toThrow();
+    }
+  });
+
+  it("classifies private and public hosts", async () => {
+    const { isPrivateHost } = await import("../src/action.js");
+    for (const u of ["http://localhost:3001", "http://127.0.0.1", "http://[::1]:8080", "http://10.0.0.5", "http://192.168.1.10", "http://172.16.0.9", "http://169.254.1.1", "http://router.local", "http://nas", "http://db.internal"]) {
+      expect(isPrivateHost(u), u).toBe(true);
+    }
+    for (const u of ["https://example.com", "https://8.8.8.8", "http://172.15.0.1", "https://news.ycombinator.com"]) {
+      expect(isPrivateHost(u), u).toBe(false);
+    }
+  });
+});

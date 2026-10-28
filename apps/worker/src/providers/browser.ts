@@ -20,6 +20,7 @@ export class PlaywrightBrowserProvider implements BrowserProvider {
   }
 
   async navigate(input: BrowserNavigateInput): Promise<BrowserPageResult> {
+    if (!/^https?:\/\//i.test(input.url)) throw new Error("only http and https URLs can be opened");
     const browser = await this.browser();
     const context = await browser.newContext();
     try {

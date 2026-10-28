@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import { ApiClient } from "./api.js";
+import { ApiClient, isPrivateHost } from "./api.js";
 import { describe, expect, it } from "vitest";
 
 // The web slice is intentionally thin; the risky logic (dedupe keys, approval
@@ -26,5 +26,16 @@ describe("local command result view", () => {
     const { localCommandOf } = await import("./api.js");
     expect(localCommandOf(JSON.stringify({ messages: [] }))).toBeNull();
     expect(localCommandOf("not json")).toBeNull();
+  });
+});
+
+describe("isPrivateHost", () => {
+  it("flags loopback, RFC1918, link-local and name-only hosts", () => {
+    for (const u of ["http://localhost:3001", "http://127.0.0.1", "http://10.0.0.5", "http://192.168.1.10", "http://172.16.0.9", "http://169.254.1.1", "http://router.local", "http://nas"]) {
+      expect(isPrivateHost(u)).toBe(true);
+    }
+    for (const u of ["https://example.com", "https://8.8.8.8", "http://172.15.0.1"]) {
+      expect(isPrivateHost(u)).toBe(false);
+    }
   });
 });
