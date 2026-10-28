@@ -77,7 +77,7 @@ export class FakeBrowserProvider implements BrowserProvider {
  */
 export class UnavailableCompanionProvider implements CompanionProvider {
   constructor(private readonly reason: string) {}
-  async runCommand(): Promise<CompanionCommandResult> {
+  async runCommand(_input: LocalRunCommandInput): Promise<CompanionCommandResult> {
     throw new Error(this.reason);
   }
 }

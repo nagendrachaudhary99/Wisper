@@ -3,7 +3,7 @@ import { PgQueryable } from "@wisper/db";
 import type { TenantGrant } from "@wisper/policy";
 import { DeterministicPlanner } from "./planner.js";
 import { createActivities } from "./activities.js";
-import { FakeBrowserProvider, FakeCalendarProvider, FakeCompanionProvider, FakeGmailProvider } from "./providers/fake.js";
+import { FakeBrowserProvider, FakeCalendarProvider, FakeCompanionProvider, FakeGmailProvider, UnavailableCompanionProvider } from "./providers/fake.js";
 import { HttpCompanionProvider } from "./providers/companion.js";
 import { PlaywrightBrowserProvider } from "./providers/browser.js";
 import { GoogleCalendarProvider, GoogleGmailProvider } from "./providers/google.js";
@@ -31,11 +31,14 @@ async function main(): Promise<void> {
     const tokens = new TenantGoogleTokenSource(db, tenantId, { clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET, encryptionKey: process.env.OAUTH_ENCRYPTION_KEY });
     google = { gmail: new GoogleGmailProvider({ tokenSource: tokens }), calendar: new GoogleCalendarProvider({ tokenSource: tokens }) };
   }
-  // Terminal control runs on the local companion. With no companion URL or
-  // shared token configured the worker uses the fake, so local.run_command
-  // stays side-effect-free until the Mac companion is reachable and trusted.
-  const companion = process.env.WISPER_COMPANION_URL && process.env.WISPER_COMPANION_TOKEN
-    ? new HttpCompanionProvider({ baseUrl: process.env.WISPER_COMPANION_URL, serviceToken: process.env.WISPER_COMPANION_TOKEN })
+  // Terminal control runs on the local companion. Three honest states:
+  // URL + token -> real companion; URL without token -> every command fails
+  // with the reason and the fix (never a fake success); no URL at all (bare
+  // dev outside compose) -> the side-effect-free fake.
+  const companion = process.env.WISPER_COMPANION_URL
+    ? process.env.WISPER_COMPANION_TOKEN
+      ? new HttpCompanionProvider({ baseUrl: process.env.WISPER_COMPANION_URL, serviceToken: process.env.WISPER_COMPANION_TOKEN })
+      : new UnavailableCompanionProvider("terminal control unavailable: WISPER_COMPANION_TOKEN is not set - add it to .env.local and restart the stack")
     : new FakeCompanionProvider();
   // Read-only page navigation runs in a local headless Chromium; set
   // WISPER_BROWSER=fake to keep it side-effect-free in tests/dev.

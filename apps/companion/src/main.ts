@@ -18,10 +18,16 @@ const allowedHosts = (process.env.WISPER_COMPANION_HOSTS ?? "127.0.0.1,localhost
 app.addHook("onRequest", async (req, reply) => {
   const host = (req.headers.host ?? "").split(":")[0] ?? "";
   if (!allowedHosts.includes(host)) return reply.code(403).send({ error: "untrusted host" });
+  // Every execution route requires the shared local token. Without it, no
+  // command of any class runs - not even read-only ones - so no local
+  // process or browser page can drive the companion without it. /health
+  // stays open for liveness checks and exposes no secrets.
+  if (req.url.startsWith("/v1/") && !serviceTokenOk(req.headers["x-wisper-companion-token"], serviceToken)) {
+    return reply.code(403).send({ error: serviceToken ? "bad companion token" : "companion token not configured; execution disabled" });
+  }
 });
 app.get("/health", async () => ({ ok: true, killSwitch: process.env.WISPER_COMPANION_DISABLED === "1", workspaceRoot: root, allowedCommands: allowed }));
 app.post("/v1/approvals", async (req, reply) => {
-  if (!serviceTokenOk(req.headers["x-wisper-companion-token"], serviceToken)) return reply.code(403).send({ error: "approval minting disabled or bad token" });
   const digest = (req.body as { digest?: unknown } | null)?.digest;
   if (typeof digest !== "string" || !digest) return reply.code(400).send({ error: "digest is required" });
   const token = store.mint(digest);
