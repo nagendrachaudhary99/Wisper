@@ -26,7 +26,7 @@ describe("compose provider-mode precedence", () => {
     expect(compose).not.toMatch(/^\s+PROVIDER_MODE:/m);
   });
 
-  it("api and worker both load .env.local via env_file", () => {
-    expect(compose.match(/path: \.env\.local/g)?.length).toBe(2);
+  it("api, worker and companion all load .env.local via env_file", () => {
+    expect(compose.match(/path: \.env\.local/g)?.length).toBe(3);
   });
 });
