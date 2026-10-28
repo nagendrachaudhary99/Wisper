@@ -8,5 +8,5 @@ RUN pnpm install --frozen-lockfile && pnpm typecheck
 # matching browser + OS libraries into the image so browser.navigate works
 # on a fresh clone with no host setup. Adds build time and image size; a
 # dedicated browser pod can split this out later.
-RUN cd apps/worker && node ../../node_modules/playwright-core/cli.js install --with-deps chromium
+RUN cd apps/worker && node node_modules/playwright-core/cli.js install --with-deps chromium
 CMD ["pnpm", "dev:api"]
