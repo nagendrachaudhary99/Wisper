@@ -1,4 +1,7 @@
 import type {
+  BrowserNavigateInput,
+  BrowserPageResult,
+  BrowserProvider,
   CalendarCreateEventInput,
   CalendarEventResult,
   CalendarProvider,
@@ -56,5 +59,25 @@ export class FakeCompanionProvider implements CompanionProvider {
       stderr: "",
       exitCode: 0,
     };
+  }
+}
+
+export class FakeBrowserProvider implements BrowserProvider {
+  calls = 0;
+  async navigate(input: BrowserNavigateInput): Promise<BrowserPageResult> {
+    this.calls += 1;
+    return { url: input.url, title: "Fake page", text: `Fake text for ${input.url}` };
+  }
+}
+
+/**
+ * Truthful stand-in when the companion is configured but untrusted: every
+ * command fails with the reason and the fix, so a run can never present
+ * fake output as a real execution.
+ */
+export class UnavailableCompanionProvider implements CompanionProvider {
+  constructor(private readonly reason: string) {}
+  async runCommand(): Promise<CompanionCommandResult> {
+    throw new Error(this.reason);
   }
 }

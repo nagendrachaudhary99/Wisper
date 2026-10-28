@@ -3,6 +3,7 @@ import {
   actionHash,
   idempotencyKeyFor,
   type ActionIntent,
+  type BrowserProvider,
   type CalendarProvider,
   type CompanionProvider,
   type GmailProvider,
@@ -19,6 +20,7 @@ export interface Providers {
   gmail: GmailProvider;
   calendar: CalendarProvider;
   companion: CompanionProvider;
+  browser: BrowserProvider;
 }
 
 export interface ExecuteArgs {
@@ -108,5 +110,7 @@ async function callProvider(providers: Providers, intent: ActionIntent): Promise
       return providers.calendar.deleteEvent(intent.input);
     case "local.run_command":
       return providers.companion.runCommand(intent.input);
+    case "browser.navigate":
+      return providers.browser.navigate(intent.input);
   }
 }

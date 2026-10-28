@@ -3,8 +3,9 @@ import { PgQueryable } from "@wisper/db";
 import type { TenantGrant } from "@wisper/policy";
 import { DeterministicPlanner } from "./planner.js";
 import { createActivities } from "./activities.js";
-import { FakeCalendarProvider, FakeCompanionProvider, FakeGmailProvider } from "./providers/fake.js";
+import { FakeBrowserProvider, FakeCalendarProvider, FakeCompanionProvider, FakeGmailProvider } from "./providers/fake.js";
 import { HttpCompanionProvider } from "./providers/companion.js";
+import { PlaywrightBrowserProvider } from "./providers/browser.js";
 import { GoogleCalendarProvider, GoogleGmailProvider } from "./providers/google.js";
 import { TenantGoogleTokenSource } from "./providers/google-token.js";
 import { HttpModelPlanner } from "./model-planner.js";
@@ -36,7 +37,10 @@ async function main(): Promise<void> {
   const companion = process.env.WISPER_COMPANION_URL && process.env.WISPER_COMPANION_TOKEN
     ? new HttpCompanionProvider({ baseUrl: process.env.WISPER_COMPANION_URL, serviceToken: process.env.WISPER_COMPANION_TOKEN })
     : new FakeCompanionProvider();
-  const providers = { ...google, companion };
+  // Read-only page navigation runs in a local headless Chromium; set
+  // WISPER_BROWSER=fake to keep it side-effect-free in tests/dev.
+  const browser = process.env.WISPER_BROWSER === "fake" ? new FakeBrowserProvider() : new PlaywrightBrowserProvider();
+  const providers = { ...google, companion, browser };
   const planner = process.env.MODEL_API_KEY ? new HttpModelPlanner({ endpoint: process.env.MODEL_ENDPOINT ?? "https://api.openai.com/v1", apiKey: process.env.MODEL_API_KEY, model: process.env.MODEL_NAME ?? "gpt-4o-mini" }) : new DeterministicPlanner();
   const activities = createActivities({
     db,
