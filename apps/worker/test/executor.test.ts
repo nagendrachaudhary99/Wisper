@@ -59,6 +59,23 @@ describe("executeAction idempotency", () => {
     const events = await listAuditForRun(db, tenantId, run.id);
     expect(events.map((e) => e.event_type)).toContain("execution.failed");
   });
+
+  it("rethrows the original error on a failed-attempt replay and never re-executes", async () => {
+    const { run } = await createRunOnce(db, { tenantId, idempotencyKey: "k3", kind: "chat", input: {} });
+    const step = await upsertStep(db, { runId: run.id, ordinal: 0, kind: intent.kind, actionHash: actionHash(intent) });
+    let calls = 0;
+    const failing = new FakeCalendarProvider();
+    failing.createEvent = async () => { calls += 1; throw new Error("real provider reason"); };
+    const providers = { gmail: new FakeGmailProvider(), calendar: failing, companion: new FakeCompanionProvider(), browser: new FakeBrowserProvider() };
+    const args = { tenantId, runId: run.id, stepId: step.id, stepOrdinal: 0, intent };
+
+    await expect(executeAction(db, providers, args)).rejects.toThrow("real provider reason");
+    // Temporal retry of the same activity: the provider must NOT be called
+    // again, and the surfaced error is the original reason, not a barrier message.
+    await expect(executeAction(db, providers, args)).rejects.toThrow("real provider reason");
+    expect(calls).toBe(1);
+    expect(await actionAttemptsCount(db, run.id)).toBe(1);
+  });
 });
 
 describe("local.run_command execution", () => {

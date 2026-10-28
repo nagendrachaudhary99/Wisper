@@ -13,7 +13,8 @@ import {
 } from "@wisper/db";
 import { evaluateAction, type PolicyEffect, type TenantGrant } from "@wisper/policy";
 import type { ModelPlanner } from "@wisper/contracts";
-import { executeAction, type Providers } from "./executor.js";
+import { ApplicationFailure } from "@temporalio/activity";
+import { executeAction, AttemptFailedError, AttemptInProgressError, type Providers } from "./executor.js";
 
 export interface ActivityDeps {
   db: Queryable;
@@ -101,12 +102,23 @@ export function createActivities(deps: ActivityDeps) {
       tenantId: string; runId: string; stepId: string; ordinal: number; intent: ActionIntent;
     }): Promise<unknown> {
       await setStepStatus(db, args.stepId, "executing");
-      const result = await executeAction(db, deps.providers, {
-        tenantId: args.tenantId, runId: args.runId, stepId: args.stepId,
-        stepOrdinal: args.ordinal, intent: args.intent,
-      });
-      await setStepStatus(db, args.stepId, "completed", { result: result.response });
-      return result.response;
+      try {
+        const result = await executeAction(db, deps.providers, {
+          tenantId: args.tenantId, runId: args.runId, stepId: args.stepId,
+          stepOrdinal: args.ordinal, intent: args.intent,
+        });
+        await setStepStatus(db, args.stepId, "completed", { result: result.response });
+        return result.response;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        await setStepStatus(db, args.stepId, "failed", { error: message });
+        // Barrier outcomes are terminal: retrying can never execute this step
+        // again, so fail the activity immediately with the true reason.
+        if (err instanceof AttemptInProgressError || err instanceof AttemptFailedError) {
+          throw ApplicationFailure.create({ message, nonRetryable: true });
+        }
+        throw err;
+      }
     },
 
     async finalizeRun(args: { tenantId: string; runId: string; ok: boolean; error?: string }): Promise<void> {

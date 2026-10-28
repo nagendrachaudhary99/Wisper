@@ -22,6 +22,7 @@ export interface AttemptRow {
 export type BeginAttemptResult =
   | { kind: "started"; attempt: AttemptRow }
   | { kind: "already_completed"; attempt: AttemptRow }
+  | { kind: "failed"; attempt: AttemptRow }
   | { kind: "in_progress"; attempt: AttemptRow };
 
 /**
@@ -67,7 +68,10 @@ export async function beginAttempt(
   );
   const attempt = existing.rows[0];
   if (!attempt) throw new Error("attempt upsert race: row vanished");
-  return { kind: attempt.status === "completed" ? "already_completed" : "in_progress", attempt };
+  return {
+    kind: attempt.status === "completed" ? "already_completed" : attempt.status === "failed" ? "failed" : "in_progress",
+    attempt,
+  };
 }
 
 export async function completeAttempt(db: Queryable, attemptId: string, response: unknown): Promise<void> {

@@ -36,6 +36,16 @@ export interface ExecuteResult {
   response: unknown;
 }
 
+/** A previous attempt of this exact action already failed. The barrier is
+ *  at-most-once: re-executing could double-apply an external side effect, so
+ *  the original failure is re-thrown instead of calling the provider again. */
+export class AttemptFailedError extends Error {
+  constructor(originalError: string) {
+    super(originalError);
+    this.name = "AttemptFailedError";
+  }
+}
+
 export class AttemptInProgressError extends Error {
   constructor(idempotencyKey: string) {
     super(`attempt ${idempotencyKey} is in progress; refusing to execute a second time`);
@@ -74,6 +84,9 @@ export async function executeAction(
       actor: "worker", eventType: "execution.deduplicated", data: { idempotencyKey: key },
     });
     return { skippedDuplicate: true, response: begun.attempt.response };
+  }
+  if (begun.kind === "failed") {
+    throw new AttemptFailedError(begun.attempt.error ?? "previous attempt of this action failed");
   }
   if (begun.kind === "in_progress") {
     throw new AttemptInProgressError(key);
