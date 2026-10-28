@@ -24,9 +24,9 @@ fi
 PROJECT="${WISPER_PROJECT:-${PROJECTS:-$(basename "$OLD_DIR")}}"
 echo "Using compose project: $PROJECT"
 
-(cd "$OLD_DIR" && ./wisper local down)
+(cd "$OLD_DIR" && COMPOSE_PROJECT_NAME="$PROJECT" ./wisper local down)
 COMPOSE_PROJECT_NAME="$PROJECT" ./wisper local up
 
 echo
 echo "Switched. Dashboard: http://localhost:5173 - same login token as before."
-echo "Rollback: (cd \"$OLD_DIR\" && ./wisper local up)"
+echo "Rollback: (cd \"$NEW_DIR\" && COMPOSE_PROJECT_NAME=\"$PROJECT\" ./wisper local down) && (cd \"$OLD_DIR\" && COMPOSE_PROJECT_NAME=\"$PROJECT\" ./wisper local up)"

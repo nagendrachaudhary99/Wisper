@@ -58,3 +58,15 @@ export class FakeCompanionProvider implements CompanionProvider {
     };
   }
 }
+
+/**
+ * Truthful stand-in when the companion is configured but untrusted: every
+ * command fails with the reason and the fix, so a run can never present
+ * fake output as a real execution.
+ */
+export class UnavailableCompanionProvider implements CompanionProvider {
+  constructor(private readonly reason: string) {}
+  async runCommand(_input: LocalRunCommandInput): Promise<CompanionCommandResult> {
+    throw new Error(this.reason);
+  }
+}
