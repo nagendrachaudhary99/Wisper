@@ -36,6 +36,12 @@ export const LocalRunCommandInput = z.object({
 });
 export type LocalRunCommandInput = z.infer<typeof LocalRunCommandInput>;
 
+/** Read-only browser navigation through the isolated browser pod. */
+export const BrowserNavigateInput = z.object({
+  url: z.string().url().max(2000),
+});
+export type BrowserNavigateInput = z.infer<typeof BrowserNavigateInput>;
+
 export const ActionIntent = z.discriminatedUnion("kind", [
   // A gmail read needs no facts: every input field is optional, so a step that
   // omits input entirely is still valid and defaults to {maxResults: 10}.
@@ -43,11 +49,12 @@ export const ActionIntent = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("calendar.create_event"), input: CalendarCreateEventInput }),
   z.object({ kind: z.literal("calendar.delete_event"), input: CalendarDeleteEventInput }),
   z.object({ kind: z.literal("local.run_command"), input: LocalRunCommandInput }),
+  z.object({ kind: z.literal("browser.navigate"), input: BrowserNavigateInput }),
 ]);
 export type ActionIntent = z.infer<typeof ActionIntent>;
 export type ActionKind = ActionIntent["kind"];
 
-export const ACTION_KINDS: readonly ActionKind[] = ["gmail.read", "calendar.create_event", "calendar.delete_event", "local.run_command"];
+export const ACTION_KINDS: readonly ActionKind[] = ["gmail.read", "calendar.create_event", "calendar.delete_event", "local.run_command", "browser.navigate"];
 
 /** Which provider owns execution for a kind. Single source of truth for routing. */
 export const PROVIDER_FOR_KIND: Record<ActionKind, string> = {
@@ -55,6 +62,7 @@ export const PROVIDER_FOR_KIND: Record<ActionKind, string> = {
   "calendar.create_event": "calendar",
   "calendar.delete_event": "calendar",
   "local.run_command": "companion",
+  "browser.navigate": "browser",
 };
 
 /**

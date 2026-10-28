@@ -1,4 +1,4 @@
-import type { CalendarCreateEventInput, GmailReadInput, LocalRunCommandInput } from "./action.js";
+import type { BrowserNavigateInput, CalendarCreateEventInput, GmailReadInput, LocalRunCommandInput } from "./action.js";
 import type { Plan } from "./plan.js";
 
 /**
@@ -56,4 +56,21 @@ export interface CompanionCommandResult {
  */
 export interface CompanionProvider {
   runCommand(input: LocalRunCommandInput): Promise<CompanionCommandResult>;
+}
+
+export interface BrowserPageResult {
+  /** Final URL after redirects. */
+  url: string;
+  title: string;
+  /** Main readable text, capped. */
+  text: string;
+}
+
+/**
+ * Read-only web navigation inside an isolated headless browser pod, never the
+ * user's own browser profile. No clicks, no typing, no stored cookies - a
+ * fresh context per call.
+ */
+export interface BrowserProvider {
+  navigate(input: BrowserNavigateInput): Promise<BrowserPageResult>;
 }
