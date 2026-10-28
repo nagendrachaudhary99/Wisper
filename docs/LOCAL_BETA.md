@@ -40,3 +40,25 @@ fails to start; it checks the Temporal config files and profile wiring.
 ## Outcome targets
 
 The beta is measured by duplicate effects (target zero), replay recovery, approval latency, successful/failed run rate, time to diagnose a failure from the audit timeline, and the ability to reverse or stop local control. These are outcome comparisons, not claims about another product's internal design.
+
+## Terminal control (local.run_command)
+
+The engine can run terminal commands on the Mac through the companion. The
+path keeps every existing guarantee:
+
+1. The planner proposes `local.run_command` only for allowlisted executables
+   (`pwd, ls, git, node, pnpm` by default) and prefers read-only usage.
+2. Policy always requires explicit approval; the dashboard and chat approval
+   cards show the exact command before anything runs.
+3. After approval, the worker mints a single-use companion approval bound to
+   the exact command digest, authenticated by a shared local token. The
+   companion re-checks its allowlist, classification and kill switch, runs the
+   command without a shell, bounds time and output, and appends to its own
+   audit log.
+4. The result (command, exit code, stdout, stderr) renders readably in the
+   dashboard and lands in the run trace.
+
+Setup: add `WISPER_COMPANION_TOKEN=<random string>` to `.env.local` and
+restart with `./wisper local down && ./wisper local up`. Without the token
+the worker uses the fake companion and no command ever executes. Setting
+`WISPER_COMPANION_DISABLED=1` in `.env.local` remains the kill switch.

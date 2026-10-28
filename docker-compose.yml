@@ -81,6 +81,11 @@ services:
     environment:
       DATABASE_URL: postgres://wisper:wisper@db:5432/wisper
       TEMPORAL_ADDRESS: temporal:7233
+      # Terminal control: the worker reaches the companion in this compose
+      # network. The shared token comes from .env.local via env_file above
+      # (compose variable substitution cannot see .env.local). Without it
+      # the worker uses the side-effect-free fake companion.
+      WISPER_COMPANION_URL: http://companion:7337
 
   web:
     profiles: ["local"]
@@ -93,11 +98,13 @@ services:
     profiles: ["local"]
     build: .
     command: pnpm --filter @wisper/companion dev
+    env_file:
+      - path: .env.local
+        required: false
     environment:
       WISPER_WORKSPACE_ROOT: /workspace
       COMPANION_HOST: 0.0.0.0
       WISPER_ALLOWED_COMMANDS: pwd,ls,git,node,pnpm
-      WISPER_COMPANION_DISABLED: ${WISPER_COMPANION_DISABLED:-0}
     volumes: ["./:/workspace"]
     ports: ["127.0.0.1:7337:7337"]
 

@@ -13,6 +13,8 @@ class FakeEngine implements RunEngine {
   starts: Array<{ runId: string; text: string }> = [];
   signals: Array<{ approvalId: string; approved: boolean; decidedBy: string }> = [];
   async cancelRun(): Promise<void> {}
+  async startRecurringRun(): Promise<void> {}
+  async cancelRecurringRun(): Promise<void> {}
   async startChatRun(args: { tenantId: string; runId: string; text: string }): Promise<void> {
     this.starts.push({ runId: args.runId, text: args.text });
   }
