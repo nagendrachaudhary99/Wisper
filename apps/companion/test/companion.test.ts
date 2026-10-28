@@ -65,3 +65,34 @@ describe("approval store and service token", () => {
     expect(again.status).toBe("awaiting_approval");
   });
 });
+
+describe("hardened command classification", () => {
+  it("never auto-approves node or pnpm: they execute arbitrary code", async () => {
+    const { classifyCommand } = await import("../src/index.js");
+    const allowed = ["pwd", "ls", "git", "node", "pnpm"];
+    expect(classifyCommand({ executable: "node", args: ["-e", "1+1"], timeoutMs: 1000 }, allowed)).toBe("explicit");
+    expect(classifyCommand({ executable: "node", args: ["script.js"], timeoutMs: 1000 }, allowed)).toBe("explicit");
+    expect(classifyCommand({ executable: "pnpm", args: ["install"], timeoutMs: 1000 }, allowed)).toBe("explicit");
+  });
+  it("auto-approves only genuinely read-only git subcommands", async () => {
+    const { classifyCommand } = await import("../src/index.js");
+    const allowed = ["git"];
+    expect(classifyCommand({ executable: "git", args: ["status"], timeoutMs: 1000 }, allowed)).toBe("auto_read");
+    expect(classifyCommand({ executable: "git", args: ["log", "--oneline"], timeoutMs: 1000 }, allowed)).toBe("auto_read");
+    expect(classifyCommand({ executable: "git", args: ["clone", "https://x"], timeoutMs: 1000 }, allowed)).toBe("explicit");
+    expect(classifyCommand({ executable: "git", args: ["config", "user.email", "x@y.z"], timeoutMs: 1000 }, allowed)).toBe("explicit");
+  });
+  it("treats node -e / --eval style flags as needing explicit approval", async () => {
+    const { classifyCommand } = await import("../src/index.js");
+    expect(classifyCommand({ executable: "node", args: ["--eval", "1"], timeoutMs: 1000 }, ["node"])).toBe("explicit");
+  });
+  it("expires minted approvals after their TTL", async () => {
+    const { createApprovalStore } = await import("../src/index.js");
+    let t = 1000;
+    const store = createApprovalStore(60_000, () => t);
+    const token = store.mint("d");
+    t = 1000 + 61_000;
+    expect(store.consume(token, "d")).toBe(false);
+    expect(store.pending()).toBe(0);
+  });
+});

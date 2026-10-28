@@ -11,6 +11,14 @@ const store = createApprovalStore();
 // to mint single-use execution approvals after its own user-facing gate has
 // passed. Without it no explicit-class command can ever run through the API.
 const serviceToken = process.env.WISPER_COMPANION_TOKEN ?? "";
+// DNS-rebinding defense: a website open in the user's browser could point its
+// domain at 127.0.0.1 and reach this port. Only answer requests whose Host
+// header names a local address (or the compose service name the worker uses).
+const allowedHosts = (process.env.WISPER_COMPANION_HOSTS ?? "127.0.0.1,localhost,[::1],companion").split(",").map((h) => h.trim()).filter(Boolean);
+app.addHook("onRequest", async (req, reply) => {
+  const host = (req.headers.host ?? "").split(":")[0] ?? "";
+  if (!allowedHosts.includes(host)) return reply.code(403).send({ error: "untrusted host" });
+});
 app.get("/health", async () => ({ ok: true, killSwitch: process.env.WISPER_COMPANION_DISABLED === "1", workspaceRoot: root, allowedCommands: allowed }));
 app.post("/v1/approvals", async (req, reply) => {
   if (!serviceTokenOk(req.headers["x-wisper-companion-token"], serviceToken)) return reply.code(403).send({ error: "approval minting disabled or bad token" });

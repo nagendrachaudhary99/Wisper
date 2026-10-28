@@ -8,13 +8,19 @@ export type ApprovalClass = "auto_read" | "explicit" | "blocked";
 export const CommandRequest = z.object({ executable: z.string().min(1), args: z.array(z.string().max(1000)).max(30).default([]), cwd: z.string().optional(), timeoutMs: z.number().int().min(100).max(30_000).default(10_000), approvalToken: z.string().optional() });
 export type CommandRequest = z.infer<typeof CommandRequest>;
 export interface CompanionConfig { workspaceRoot: string; auditPath: string; allowedCommands: string[]; killSwitch: () => boolean; consumeApproval: (token: string, digest: string) => Promise<boolean>; }
-const readOnlyCommands = new Set(["pwd", "ls", "git", "node", "pnpm"]);
-const forbiddenArgs = /(^|\s)(--exec|-c|push|commit|reset|clean|rm|mv|chmod|chown|sudo)(\s|$)/i;
+const readOnlyCommands = new Set(["pwd", "ls"]);
+/** git is read-only only for these subcommands; everything else (clone, config, fetch, ...) is effectful. */
+const readOnlyGitSubcommands = new Set(["status", "log", "diff", "branch", "show", "remote", "rev-parse"]);
+const forbiddenArgs = /(^|\s)(--exec|-c|-e|--eval|push|commit|reset|clean|rm|mv|chmod|chown|sudo)(\s|$)/i;
 export function classifyCommand(request: CommandRequest, allowed: string[]): ApprovalClass {
   if (!allowed.includes(request.executable)) return "blocked";
   const joined = request.args.join(" ");
   if (forbiddenArgs.test(joined)) return request.executable === "sudo" ? "blocked" : "explicit";
-  return readOnlyCommands.has(request.executable) ? "auto_read" : "explicit";
+  if (readOnlyCommands.has(request.executable)) return "auto_read";
+  // node and pnpm can run arbitrary code (node -e, pnpm scripts), so they are
+  // never auto-approved: every use needs an explicit, user-approved request.
+  if (request.executable === "git" && readOnlyGitSubcommands.has(request.args[0] ?? "")) return "auto_read";
+  return "explicit";
 }
 export function previewCommand(request: CommandRequest): string { return [request.executable, ...request.args.map(shellQuote)].join(" "); }
 function shellQuote(value: string) { return /^[a-zA-Z0-9_./:@=-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`; }
@@ -66,16 +72,26 @@ export function classifyLocalOperation(operation: z.infer<typeof FileOperation> 
  */
 export interface ApprovalStore {
   mint(digest: string): string;
-  /** True at most once per token, and only for the digest it was minted for. */
+  /** True at most once per token, only for the digest it was minted for, and only within its TTL. */
   consume(token: string, digest: string): boolean;
   pending(): number;
 }
-export function createApprovalStore(): ApprovalStore {
-  const approvals = new Map<string, string>();
+/** Minted approvals live 5 minutes: long enough for the engine to retry once, short enough that a leaked token is useless later. */
+export function createApprovalStore(ttlMs = 5 * 60 * 1000, now: () => number = Date.now): ApprovalStore {
+  const approvals = new Map<string, { digest: string; expiresAt: number }>();
   return {
-    mint(digest) { const token = randomUUID(); approvals.set(token, digest); return token; },
-    consume(token, digest) { const ok = approvals.get(token) === digest; if (ok) approvals.delete(token); return ok; },
-    pending() { return approvals.size; },
+    mint(digest) { const token = randomUUID(); approvals.set(token, { digest, expiresAt: now() + ttlMs }); return token; },
+    consume(token, digest) {
+      const entry = approvals.get(token);
+      if (!entry || entry.digest !== digest) return false;
+      if (now() > entry.expiresAt) { approvals.delete(token); return false; }
+      approvals.delete(token);
+      return true;
+    },
+    pending() {
+      for (const [token, entry] of approvals) if (now() > entry.expiresAt) approvals.delete(token);
+      return approvals.size;
+    },
   };
 }
 
