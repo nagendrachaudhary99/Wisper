@@ -13,6 +13,10 @@ class FakeEngine implements RunEngine {
   signals: Array<{ approvalId: string; approved: boolean }> = [];
   cancels: Array<{ runId: string }> = [];
   failCancel = false;
+  recurringStarts: Array<{recurringRunId:string}> = [];
+  recurringCancels: Array<{workflowId:string}> = [];
+  async startRecurringRun(args:{tenantId:string;recurringRunId:string;workflowId:string;text:string;intervalMinutes:number}){this.recurringStarts.push({recurringRunId:args.recurringRunId});}
+  async cancelRecurringRun(args:{workflowId:string}){this.recurringCancels.push(args);}
   async cancelRun(args: { tenantId: string; runId: string }): Promise<void> {
     if (this.failCancel) throw new Error("orchestrator unreachable");
     this.cancels.push({ runId: args.runId });
@@ -195,5 +199,17 @@ describe("GET /v1/system/status", () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ planner: { mode: "openai-compatible", live: true }, provider: "google", google: { connected: false, docs: false } });
     expect(JSON.stringify(res.json())).not.toContain("secret");
+  });
+});
+
+describe("recurring runs", () => {
+  it("starts and cancels a tenant-scoped Temporal recurrence", async () => {
+    const made=await app.inject({method:"POST",url:"/v1/recurring",headers:auth(),payload:{text:"Show unread Gmail",intervalMinutes:30}});
+    expect(made.statusCode).toBe(201); const recurring=made.json().recurring;
+    expect(engine.recurringStarts).toEqual([{recurringRunId:recurring.id}]);
+    const dash=await app.inject({method:"GET",url:"/v1/dashboard",headers:auth()});
+    expect(dash.json().recurring[0]).toMatchObject({id:recurring.id,status:"active",interval_minutes:30});
+    const stopped=await app.inject({method:"DELETE",url:`/v1/recurring/${recurring.id}`,headers:auth()});
+    expect(stopped.statusCode).toBe(200); expect(engine.recurringCancels).toEqual([{workflowId:recurring.workflow_id}]);
   });
 });

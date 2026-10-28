@@ -30,6 +30,7 @@ export class FakeGmailProvider implements GmailProvider {
 export class FakeCalendarProvider implements CalendarProvider {
   calls = 0;
   created: CalendarCreateEventInput[] = [];
+  async deleteEvent(input:{eventId:string}){this.calls+=1;return {eventId:input.eventId,deleted:true as const};}
   async createEvent(input: CalendarCreateEventInput): Promise<CalendarEventResult> {
     this.calls += 1;
     this.created.push(input);

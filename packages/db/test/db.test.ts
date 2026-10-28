@@ -173,8 +173,8 @@ describe("migrations", () => {
       async close(): Promise<void> {},
     };
 
-    expect(await migrate(compatibleDb)).toEqual(["0001_init", "0002_oauth", "0003_oauth_scope_guard"]);
-    expect(transactions).toBe(3);
+    expect(await migrate(compatibleDb)).toEqual(["0001_init", "0002_oauth", "0003_oauth_scope_guard", "0004_recurring_runs"]);
+    expect(transactions).toBe(4);
     expect(controlStatements).toEqual([]);
   });
 });

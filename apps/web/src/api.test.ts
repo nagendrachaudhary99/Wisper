@@ -1,3 +1,5 @@
+import { vi } from "vitest";
+import { ApiClient } from "./api.js";
 import { describe, expect, it } from "vitest";
 
 // The web slice is intentionally thin; the risky logic (dedupe keys, approval
@@ -11,3 +13,5 @@ describe("web idempotency key shape", () => {
     expect(a).toMatch(/^web-\d+-[a-z0-9]+$/);
   });
 });
+
+describe("recurring API",()=>{it("creates recurring work",async()=>{globalThis.fetch=vi.fn(async()=>new Response(JSON.stringify({recurring:{id:"rec_1"}}),{status:201})) as typeof fetch;const c=new ApiClient("t");await c.createRecurring("read inbox",15);expect(fetch).toHaveBeenCalledWith("/v1/recurring",expect.objectContaining({method:"POST",body:JSON.stringify({text:"read inbox",intervalMinutes:15})}));});});

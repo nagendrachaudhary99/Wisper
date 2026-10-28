@@ -236,9 +236,10 @@ describe("planner request contract", () => {
     expect(req.body.model).toBe("test-model");
     expect(req.body.response_format?.type).toBe("json_object");
     const system = req.body.messages.find((m) => m.role === "system")?.content ?? "";
-    expect(system).toContain("Allowed kinds: gmail.read and calendar.create_event");
+    expect(system).toContain("Allowed kinds: gmail.read, calendar.create_event, and calendar.delete_event");
     expect(system).toContain("find any interview update in my email");
     expect(system).toContain("query is Gmail search syntax");
+    expect(system).toContain("never emit zero steps when the user asks to read, show, find, search, or list email");
     expect(system).toContain("Never invent missing dates or recipients");
     expect(system).toContain(`Today's date is ${new Date().toISOString().slice(0, 10)}`);
     expect(req.body.messages.find((m) => m.role === "user")?.content).toBe("anything");

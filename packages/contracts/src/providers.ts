@@ -29,6 +29,7 @@ export interface CalendarEventResult {
 
 export interface CalendarProvider {
   createEvent(input: CalendarCreateEventInput): Promise<CalendarEventResult>;
+  deleteEvent(input: {eventId:string}): Promise<{eventId:string;deleted:true}>;
 }
 
 /** Turns free-text into a structured plan. A model adapter implements this later. */

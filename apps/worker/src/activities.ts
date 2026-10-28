@@ -9,6 +9,7 @@ import {
   type ApprovalRow,
   type Queryable,
   type StepRow,
+  createRecurringOccurrence,
 } from "@wisper/db";
 import { evaluateAction, type PolicyEffect, type TenantGrant } from "@wisper/policy";
 import type { ModelPlanner } from "@wisper/contracts";
@@ -32,6 +33,11 @@ export function createActivities(deps: ActivityDeps) {
   const { db } = deps;
 
   return {
+    async createRecurringOccurrence(args:{tenantId:string;recurringRunId:string;fireKey:string;text:string;intervalMinutes:number}) {
+      const run=await createRecurringOccurrence(db,args);
+      await appendAudit(db,{tenantId:args.tenantId,runId:run.id,actor:"temporal",eventType:"recurring.fired",data:{recurringRunId:args.recurringRunId,fireKey:args.fireKey}});
+      return {runId:run.id};
+    },
     async planSteps(args: { tenantId: string; runId: string; text: string }): Promise<Plan> {
       await setRunStatus(db, args.tenantId, args.runId, "planning");
       const plan = await deps.planner.plan(args.text);

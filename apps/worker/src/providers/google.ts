@@ -28,6 +28,7 @@ export class GoogleGmailProvider implements GmailProvider {
 export class GoogleCalendarProvider implements CalendarProvider {
   private readonly fetcher: typeof globalThis.fetch;
   constructor(private readonly options: GoogleProviderOptions) { this.fetcher = options.fetch ?? globalThis.fetch; }
+  async deleteEvent(input:{eventId:string}):Promise<{eventId:string;deleted:true}>{const token=await this.options.tokenSource.accessToken();const res=await this.fetcher(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(input.eventId)}`,{method:"DELETE",headers:{authorization:`Bearer ${token}`}});if(!res.ok)throw new Error(`Google API ${res.status}: ${(await res.text()).slice(0,300)}`);return {eventId:input.eventId,deleted:true};}
   async createEvent(input: CalendarCreateEventInput): Promise<CalendarEventResult> {
     const token = await this.options.tokenSource.accessToken();
     const body = { summary: input.summary, start: { dateTime: input.start }, end: { dateTime: input.end }, location: input.location, description: input.description, attendees: input.attendees?.map((email) => ({ email })) };

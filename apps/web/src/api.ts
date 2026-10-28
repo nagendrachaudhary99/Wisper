@@ -1,9 +1,11 @@
 export interface RunSummary { id:string; status:string; input:{text?:string}; plan?:{summary?:string}|null; error?:string|null; created_at:string; updated_at?:string; }
+export interface Attempt { id:string; step_id:string; provider:string; request:unknown; response:unknown; status:string; error:string|null; created_at:string; completed_at:string|null; }
+export interface RecurringRun {id:string;text:string;interval_minutes:number;status:string;last_run_id:string|null;last_fired_at:string|null;next_fire_at:string;created_at:string;}
 export interface Step { id:string; ordinal:number; kind:string; status:string; result:unknown; error:string|null; }
 export interface Approval { id:string; run_id:string; step_id:string; status:"pending"|"approved"|"rejected"; action:{kind:string;input:Record<string,unknown>}; created_at:string; }
-export interface AuditEvent { id:number; run_id:string|null; actor:string; event_type:string; data:unknown; created_at:string; }
-export interface RunDetail { run:RunSummary; steps:Step[]; approvals:Approval[]; audit:AuditEvent[]; }
-export interface Dashboard { counts:Record<string,number>; runs:RunSummary[]; approvals:Approval[]; failures:RunSummary[]; audit:AuditEvent[]; steps:Step[]; }
+export interface AuditEvent { id:number; run_id:string|null; step_id?:string|null; actor:string; event_type:string; data:unknown; created_at:string; }
+export interface RunDetail { run:RunSummary; steps:Step[]; attempts:Attempt[]; approvals:Approval[]; audit:AuditEvent[]; }
+export interface Dashboard { recurring:RecurringRun[]; counts:Record<string,number>; runs:RunSummary[]; approvals:Approval[]; failures:RunSummary[]; audit:AuditEvent[]; steps:Step[]; }
 export interface SystemStatus { planner:{mode:string;live:boolean}; google:{configured:boolean;connected:boolean;accountEmail:string|null;scopes:string[];gmail:boolean;calendar:boolean;docs:false}; provider:string; }
 export class ApiClient {
  constructor(private token:string){}
@@ -11,6 +13,8 @@ export class ApiClient {
  chat(text:string,idempotencyKey:string){return this.call<{runId:string;status:string;deduplicated:boolean}>("/v1/chat",{method:"POST",body:JSON.stringify({text,idempotencyKey})});}
  run(id:string){return this.call<RunDetail>(`/v1/runs/${id}`);}
  deleteRun(id:string){return this.call<{ok:boolean;cancelError:string|null}>(`/v1/runs/${id}`,{method:"DELETE"});} dashboard(){return this.call<Dashboard>("/v1/dashboard");}
+ createRecurring(text:string,intervalMinutes:number){return this.call<{recurring:RecurringRun}>("/v1/recurring",{method:"POST",body:JSON.stringify({text,intervalMinutes})});}
+ cancelRecurring(id:string){return this.call<{ok:boolean}>(`/v1/recurring/${id}`,{method:"DELETE"});}
  status(){return this.call<SystemStatus>("/v1/system/status");}
  googleAuthorizationUrl(){return this.call<{authorizationUrl:string}>("/v1/oauth/google/start");}
  pendingApprovals(){return this.call<{approvals:Approval[]}>("/v1/approvals?status=pending");}
